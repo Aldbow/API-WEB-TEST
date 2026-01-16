@@ -55,7 +55,22 @@ export async function POST(request: Request) {
 
         // Get current sync state
         const currentState = await getSyncState(endpoint, year);
-        let currentCursor = currentState?.lastCursor || null;
+
+        // Check if file actually exists - if not, reset sync state
+        const fileInfo = await getFileInfo(endpoint, year);
+        let currentCursor: string | null = null;
+
+        if (fileInfo.exists && currentState?.lastCursor) {
+            // File exists and we have a cursor, continue from where we left off
+            currentCursor = currentState.lastCursor;
+            console.log(`Continuing sync from cursor for ${endpoint} ${year}`);
+        } else if (!fileInfo.exists && currentState?.totalRecords) {
+            // File was deleted but state exists, reset and start fresh
+            console.log(`File missing for ${endpoint} ${year}, starting fresh sync`);
+            currentCursor = null;
+        } else {
+            console.log(`Starting new sync for ${endpoint} ${year}`);
+        }
 
         let totalNewRecords = 0;
         let totalDuplicatesSkipped = 0;
@@ -134,7 +149,7 @@ export async function POST(request: Request) {
         }
 
         // Get final file info
-        const fileInfo = await getFileInfo(endpoint, year);
+        const finalFileInfo = await getFileInfo(endpoint, year);
 
         const syncResult: SyncResult = {
             success: true,
@@ -142,7 +157,7 @@ export async function POST(request: Request) {
             year,
             newRecords: totalNewRecords,
             duplicatesSkipped: totalDuplicatesSkipped,
-            totalRecords: fileInfo.recordCount,
+            totalRecords: finalFileInfo.recordCount,
             filePath: getFilePath(endpoint, year),
             isComplete,
         };

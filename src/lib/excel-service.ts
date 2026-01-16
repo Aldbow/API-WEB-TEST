@@ -95,15 +95,28 @@ export async function appendToExcel(
         let duplicatesSkipped = 0;
         const uniqueNewRecords: any[] = [];
 
-        for (const record of newData) {
-            const key = generateRecordKey(record, keyFields);
+        console.log(`Deduplication using keys: [${keyFields.join(', ')}]`);
+        console.log(`Existing records: ${existingRecords.length}, New data batch: ${newData.length}`);
+
+        for (let i = 0; i < newData.length; i++) {
+            const record = newData[i];
+            let key = generateRecordKey(record, keyFields);
+
+            // If key is empty or just pipe separators, use a fallback with all fields hash
+            if (!key || key === '' || key.split('|').every(k => k === '')) {
+                // Create a hash from all field values as fallback
+                key = `__row_${JSON.stringify(record)}`;
+            }
+
             if (!existingKeys.has(key)) {
                 uniqueNewRecords.push(record);
-                existingKeys.add(key); // Add to set to prevent duplicates within new batch
+                existingKeys.add(key);
             } else {
                 duplicatesSkipped++;
             }
         }
+
+        console.log(`New unique records: ${uniqueNewRecords.length}, Duplicates skipped: ${duplicatesSkipped}`);
 
         // Combine existing and new records
         const allRecords = [...existingRecords, ...uniqueNewRecords];
