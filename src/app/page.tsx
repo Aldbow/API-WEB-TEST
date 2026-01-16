@@ -20,9 +20,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, Filter, Database, TrendingUp, DollarSign, Eye, Download, Archive, Network } from "lucide-react";
-import { Badge } from "@/components/ui/badge"; // Note: I might need to add Badge if I haven't. I'll mock it or add it.
-import { DetailSheet } from "@/components/detail-sheet"; // New component
+import { Loader2, Search, Filter, Database, TrendingUp, DollarSign, Eye, Download, Archive, Network, FolderSync, TableIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { DetailSheet } from "@/components/detail-sheet";
+import { SyncManager } from "@/components/sync-manager";
 import { ENDPOINTS } from "@/lib/constants";
 
 // Mock Badge if I missed adding it, or just use span with classes if lazy. 
@@ -42,6 +43,9 @@ export default function Home() {
     // Sheet state
     const [selectedItem, setSelectedItem] = useState<any | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+    // Tab state: 'browser' or 'sync'
+    const [activeTab, setActiveTab] = useState<'browser' | 'sync'>('browser');
 
     // Dynamic Columns Helper
     const getDynamicColumns = () => {
@@ -301,142 +305,172 @@ export default function Home() {
                     </Card>
                 </div>
 
-                {/* Filters & Actions */}
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border sticky top-16 z-30">
-                    <form onSubmit={handleSearch} className="relative w-full md:w-96">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-                        <Input
-                            placeholder="Search packages..."
-                            className="pl-9 bg-slate-50 dark:bg-slate-950 border-none focus-visible:ring-1"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </form>
-                    <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
-                        {/* Endpoint Selector - Added here as requested */}
-                        <Select value={selectedEndpoint} onValueChange={setSelectedEndpoint}>
-                            <SelectTrigger className="w-[280px] h-10 bg-slate-100 dark:bg-slate-800 border-none font-medium">
-                                <SelectValue placeholder="Select Endpoint" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[400px]">
-                                {ENDPOINTS.map((ep) => (
-                                    <SelectItem key={ep.value} value={ep.value}>
-                                        {ep.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                {/* Tab Navigation */}
+                <div className="flex gap-2 bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border">
+                    <Button
+                        variant={activeTab === 'browser' ? 'default' : 'ghost'}
+                        className={`gap-2 ${activeTab === 'browser' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                        onClick={() => setActiveTab('browser')}
+                    >
+                        <TableIcon className="h-4 w-4" />
+                        Data Browser
+                    </Button>
+                    <Button
+                        variant={activeTab === 'sync' ? 'default' : 'ghost'}
+                        className={`gap-2 ${activeTab === 'sync' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
+                        onClick={() => setActiveTab('sync')}
+                    >
+                        <FolderSync className="h-4 w-4" />
+                        Sync Manager
+                    </Button>
+                </div>
 
-                        <Button variant="outline" className="gap-2" onClick={() => fetchData(true)} disabled={loading || isExporting}>
-                            <Filter className="h-4 w-4" />
-                            Reset / Refresh
-                        </Button>
-                        <Button
-                            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={handleExport}
-                            disabled={loading || isExporting}
-                        >
-                            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                            {isExporting ? `Exporting (${exportProgress})...` : 'Export to Excel'}
-                        </Button>
-                    </div>
-                </div >
+                {/* Sync Manager Tab */}
+                {activeTab === 'sync' && (
+                    <SyncManager year={year} onSyncComplete={() => fetchData(true)} />
+                )}
 
-                {/* Enhanced Data Table */}
-                < Card className="bg-white dark:bg-slate-900 shadow-sm border-none overflow-hidden flex flex-col h-[600px] relative z-0" >
-                    <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
-                        <CardTitle>{ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.label || 'Data Paket'}</CardTitle>
-                        <CardDescription>Archive data from INAPROC API. Click row or eye icon for details.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0 flex-1 overflow-hidden relative">
-                        <div className="absolute inset-0 overflow-auto">
-
-                            <Table className="w-max min-w-full">
-                                <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
-                                    <TableRow className="bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50/50">
-                                        <TableHead className="w-[50px] whitespace-nowrap">No</TableHead>
-                                        {columns.map(key => (
-                                            <TableHead key={key} className="whitespace-nowrap capitalize font-semibold text-slate-700 dark:text-slate-300">
-                                                {key.replace(/_/g, ' ')}
-                                            </TableHead>
+                {/* Data Browser Tab */}
+                {activeTab === 'browser' && (
+                    <>
+                        {/* Filters & Actions */}
+                        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border sticky top-16 z-30">
+                            <form onSubmit={handleSearch} className="relative w-full md:w-96">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                                <Input
+                                    placeholder="Search packages..."
+                                    className="pl-9 bg-slate-50 dark:bg-slate-950 border-none focus-visible:ring-1"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </form>
+                            <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
+                                {/* Endpoint Selector */}
+                                <Select value={selectedEndpoint} onValueChange={setSelectedEndpoint}>
+                                    <SelectTrigger className="w-[280px] h-10 bg-slate-100 dark:bg-slate-800 border-none font-medium">
+                                        <SelectValue placeholder="Select Endpoint" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[400px]">
+                                        {ENDPOINTS.map((ep) => (
+                                            <SelectItem key={ep.value} value={ep.value}>
+                                                {ep.label}
+                                            </SelectItem>
                                         ))}
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {data.length === 0 && !loading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={columns.length + 2} className="h-24 text-center text-slate-500">
-                                                No data found.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        data.map((item, index) => (
-                                            <TableRow
-                                                key={index}
-                                                className="hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openDetails(item);
-                                                }}
-                                            >
-                                                <TableCell className="font-medium text-slate-500 text-xs">{index + 1}</TableCell>
-                                                {columns.map(key => {
-                                                    const val = item[key];
-                                                    let displayVal: React.ReactNode = val;
+                                    </SelectContent>
+                                </Select>
 
-                                                    if (val === null || val === undefined) displayVal = <span className="text-slate-300">-</span>;
-                                                    else if (typeof val === 'number' && (key.includes('harga') || key.includes('pagu') || key.includes('nilai') || key.includes('ongkos'))) {
-                                                        displayVal = <span className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(val)}</span>;
-                                                    } else if (typeof val === 'string' && (key.includes('tanggal') || val.match(/^\d{4}-\d{2}-\d{2}/))) {
-                                                        try {
-                                                            displayVal = new Date(val).toLocaleDateString();
-                                                        } catch (e) { displayVal = val; }
-                                                    } else if (typeof val === 'object') {
-                                                        displayVal = <span className="italic text-xs text-slate-400">Object</span>;
-                                                    } else if (key.includes("status")) {
-                                                        displayVal = <Badge variant="secondary" className="text-[10px] h-5">{String(val)}</Badge>
-                                                    }
-
-                                                    return (
-                                                        <TableCell key={key} className="whitespace-nowrap text-xs max-w-[300px] truncate" title={String(val)}>
-                                                            {displayVal}
-                                                        </TableCell>
-                                                    )
-                                                })}
-                                                <TableCell>
-                                                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8">
-                                                        <Eye className="h-4 w-4 text-blue-600" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-
-                        </div>
-                    </CardContent>
-                    {
-                        (hasMore || loading) && (
-                            <div className="p-4 border-t flex justify-center bg-slate-50/30 shrink-0 relative z-20">
+                                <Button variant="outline" className="gap-2" onClick={() => fetchData(true)} disabled={loading || isExporting}>
+                                    <Filter className="h-4 w-4" />
+                                    Reset / Refresh
+                                </Button>
                                 <Button
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        loadMore();
-                                    }}
-                                    disabled={loading}
-                                    className="w-full max-w-xs gap-2"
+                                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    onClick={handleExport}
+                                    disabled={loading || isExporting}
                                 >
-                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                    {loading ? 'Loading more...' : 'Load More Data'}
+                                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                    {isExporting ? `Exporting (${exportProgress})...` : 'Export to Excel'}
                                 </Button>
                             </div>
-                        )
-                    }
-                </Card >
+                        </div>
+
+                        {/* Enhanced Data Table */}
+                        < Card className="bg-white dark:bg-slate-900 shadow-sm border-none overflow-hidden flex flex-col h-[600px] relative z-0" >
+                            <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
+                                <CardTitle>{ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.label || 'Data Paket'}</CardTitle>
+                                <CardDescription>Archive data from INAPROC API. Click row or eye icon for details.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-0 flex-1 overflow-hidden relative">
+                                <div className="absolute inset-0 overflow-auto">
+
+                                    <Table className="w-max min-w-full">
+                                        <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
+                                            <TableRow className="bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50/50">
+                                                <TableHead className="w-[50px] whitespace-nowrap">No</TableHead>
+                                                {columns.map(key => (
+                                                    <TableHead key={key} className="whitespace-nowrap capitalize font-semibold text-slate-700 dark:text-slate-300">
+                                                        {key.replace(/_/g, ' ')}
+                                                    </TableHead>
+                                                ))}
+                                                <TableHead className="w-[50px]"></TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {data.length === 0 && !loading ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={columns.length + 2} className="h-24 text-center text-slate-500">
+                                                        No data found.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                data.map((item, index) => (
+                                                    <TableRow
+                                                        key={index}
+                                                        className="hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openDetails(item);
+                                                        }}
+                                                    >
+                                                        <TableCell className="font-medium text-slate-500 text-xs">{index + 1}</TableCell>
+                                                        {columns.map(key => {
+                                                            const val = item[key];
+                                                            let displayVal: React.ReactNode = val;
+
+                                                            if (val === null || val === undefined) displayVal = <span className="text-slate-300">-</span>;
+                                                            else if (typeof val === 'number' && (key.includes('harga') || key.includes('pagu') || key.includes('nilai') || key.includes('ongkos'))) {
+                                                                displayVal = <span className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(val)}</span>;
+                                                            } else if (typeof val === 'string' && (key.includes('tanggal') || val.match(/^\d{4}-\d{2}-\d{2}/))) {
+                                                                try {
+                                                                    displayVal = new Date(val).toLocaleDateString();
+                                                                } catch (e) { displayVal = val; }
+                                                            } else if (typeof val === 'object') {
+                                                                displayVal = <span className="italic text-xs text-slate-400">Object</span>;
+                                                            } else if (key.includes("status")) {
+                                                                displayVal = <Badge variant="secondary" className="text-[10px] h-5">{String(val)}</Badge>
+                                                            }
+
+                                                            return (
+                                                                <TableCell key={key} className="whitespace-nowrap text-xs max-w-[300px] truncate" title={String(val)}>
+                                                                    {displayVal}
+                                                                </TableCell>
+                                                            )
+                                                        })}
+                                                        <TableCell>
+                                                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8">
+                                                                <Eye className="h-4 w-4 text-blue-600" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+
+                                </div>
+                            </CardContent>
+                            {
+                                (hasMore || loading) && (
+                                    <div className="p-4 border-t flex justify-center bg-slate-50/30 shrink-0 relative z-20">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                loadMore();
+                                            }}
+                                            disabled={loading}
+                                            className="w-full max-w-xs gap-2"
+                                        >
+                                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                            {loading ? 'Loading more...' : 'Load More Data'}
+                                        </Button>
+                                    </div>
+                                )
+                            }
+                        </Card >
+                    </>
+                )}
 
             </main >
         </div >
