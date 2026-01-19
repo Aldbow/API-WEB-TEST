@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     }
 
     // Basic security check to ensure it hits the API and not some internal path
-    if (!endpoint.startsWith('/v1/')) {
+    if (!endpoint.startsWith('/v1/') && !endpoint.startsWith('/legacy/')) {
         return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
     }
 

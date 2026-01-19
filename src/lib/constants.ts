@@ -11,6 +11,7 @@ export const ENDPOINTS = [
     { label: "RUP Paket Anggaran Penyedia", value: "/v1/rup/paket-anggaran-penyedia" },
     { label: "RUP Paket Anggaran Swakelola", value: "/v1/rup/paket-anggaran-swakelola" },
     { label: "RUP Paket Penyedia Terumumkan", value: "/v1/rup/paket-penyedia-terumumkan" },
+    { label: "RUP Paket Penyedia Terumumkan (Legacy)", value: "/legacy/rup/paket-penyedia-terumumkan" },
     { label: "RUP Paket Swakelola Terumumkan", value: "/v1/rup/paket-swakelola-terumumkan" },
     { label: "RUP Program Master", value: "/v1/rup/program-master" },
     { label: "Tender: Jadwal Tahapan Non-Tender", value: "/v1/tender/jadwal-tahapan-non-tender" },
