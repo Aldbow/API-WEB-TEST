@@ -102,7 +102,7 @@ export async function GET(request: Request) {
         return NextResponse.json({
             endpoints: endpointStatuses,
             schedule,
-            basePath: process.env.INAPROC_DATA_PATH || 'D:/INAPROC-Data',
+            basePath: process.env.SYNC_LOCATION || process.env.INAPROC_DATA_PATH || 'C:/Users/User/Documents/Aldiva/01 - DATABASE INAPROC LKPP',
         });
     } catch (error: any) {
         console.error('Error getting sync status:', error);

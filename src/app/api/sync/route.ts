@@ -11,6 +11,14 @@ import { getFilePath } from '@/lib/drive-config';
 const BASE_URL = 'https://data.inaproc.id/api';
 const JWT_TOKEN = process.env.JWT_TOKEN;
 
+// Configuration for retries
+const RETRY_CONFIG = {
+    maxRetries: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+    timeout: 30000, // 30 seconds
+};
+
 interface SyncResult {
     success: boolean;
     endpoint: string;
@@ -21,6 +29,52 @@ interface SyncResult {
     filePath: string;
     isComplete: boolean;
     error?: string;
+    verificationStatus?: 'verified' | 'mismatch' | 'unchecked';
+}
+
+/**
+ * Fetch with retry logic and timeout
+ */
+async function fetchWithRetry(url: string, options: RequestInit, retryCount = 0): Promise<Response> {
+    try {
+        // Create controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), RETRY_CONFIG.timeout);
+
+        const res = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        // Success or non-retriable error
+        if (res.ok || res.status === 400 || res.status === 401 || res.status === 404) {
+            return res;
+        }
+
+        // Retriable status codes (Server errors, Rate limit)
+        if ([429, 500, 502, 503, 504].includes(res.status)) {
+            throw new Error(`Retriable error: ${res.status}`);
+        }
+
+        return res;
+    } catch (error: any) {
+        if (retryCount >= RETRY_CONFIG.maxRetries) {
+            throw error;
+        }
+
+        // Calculate backoff delay
+        const delay = Math.min(
+            RETRY_CONFIG.initialDelay * Math.pow(2, retryCount),
+            RETRY_CONFIG.maxDelay
+        );
+
+        console.log(`Sync request failed (${error.message}). Retrying in ${delay}ms... (Attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries})`);
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchWithRetry(url, options, retryCount + 1);
+    }
 }
 
 export async function POST(request: Request) {
@@ -59,6 +113,7 @@ export async function POST(request: Request) {
         // Check if file actually exists - if not, reset sync state
         const fileInfo = await getFileInfo(endpoint, year);
         let currentCursor: string | null = null;
+        let finalVerification: 'verified' | 'mismatch' | 'unchecked' = 'unchecked';
 
         if (fileInfo.exists && currentState?.lastCursor) {
             // File exists and we have a cursor, continue from where we left off
@@ -87,69 +142,104 @@ export async function POST(request: Request) {
                 apiUrl += `&cursor=${encodeURIComponent(currentCursor)}`;
             }
 
-            // Fetch from INAPROC API
-            const res = await fetch(apiUrl, {
-                headers: {
-                    'Authorization': `Bearer ${JWT_TOKEN}`,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                },
-            });
+            // Fetch from INAPROC API with retry
+            try {
+                const res = await fetchWithRetry(apiUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${JWT_TOKEN}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                });
 
-            if (!res.ok) {
-                const errorText = await res.text();
-                throw new Error(`API Error: ${res.status} - ${errorText}`);
-            }
+                if (!res.ok) {
+                    const errorText = await res.text().catch(() => 'Unknown error');
+                    throw new Error(`API Error: ${res.status} - ${errorText}`);
+                }
 
-            const result = await res.json();
-            const pageData = result.data || [];
+                const result = await res.json();
+                const pageData = result.data || [];
 
-            if (pageData.length === 0) {
-                isComplete = true;
-                break;
-            }
+                if (pageData.length === 0) {
+                    isComplete = true;
+                    break;
+                }
 
-            // Append to Excel with deduplication
-            const excelResult = await appendToExcel(endpoint, year, pageData);
+                // Append to Excel with deduplication
+                const excelResult = await appendToExcel(endpoint, year, pageData);
 
-            if (!excelResult.success) {
-                throw new Error(excelResult.error || 'Failed to append to Excel');
-            }
+                if (!excelResult.success) {
+                    throw new Error(excelResult.error || 'Failed to append to Excel');
+                }
 
-            totalNewRecords += excelResult.newRecords;
-            totalDuplicatesSkipped += excelResult.duplicatesSkipped;
+                totalNewRecords += excelResult.newRecords;
+                totalDuplicatesSkipped += excelResult.duplicatesSkipped;
 
-            // Get next cursor
-            const nextCursor = result.cursor || (result.meta && result.meta.cursor);
+                // Get next cursor
+                const nextCursor = result.cursor || (result.meta && result.meta.cursor);
 
-            if (!nextCursor || result.has_more === false) {
-                isComplete = true;
-                // Update sync state with null cursor to indicate completion
-                await updateSyncState(endpoint, year, {
-                    lastCursor: null,
+                // Update state
+                const newState = {
+                    lastCursor: nextCursor || null,
                     totalRecords: excelResult.totalRecords,
                     filePath: excelResult.filePath,
+                };
+
+                await updateSyncState(endpoint, year, newState);
+
+                if (!nextCursor || result.has_more === false) {
+                    isComplete = true;
+                    // Final Verification Check
+                    const finalFileCheck = await getFileInfo(endpoint, year);
+                    if (finalFileCheck.recordCount === newState.totalRecords) {
+                        finalVerification = 'verified';
+                    } else {
+                        console.warn(`Verification Mismatch for ${endpoint} ${year}: State says ${newState.totalRecords}, File has ${finalFileCheck.recordCount}`);
+                        finalVerification = 'mismatch';
+                    }
+                    break;
+                }
+
+                currentCursor = nextCursor;
+                pagesFetched++;
+
+                // Small delay to be nice to the API
+                await new Promise((r) => setTimeout(r, 200));
+
+            } catch (error: any) {
+                // If we hit an error after retries, we return partial success so we don't lose progress
+                console.error(`Error during sync page ${pagesFetched + 1}:`, error);
+
+                // Get final file info to return accurate status
+                const finalFileInfo = await getFileInfo(endpoint, year);
+
+                return NextResponse.json({
+                    success: true, // true because we might have saved some data
+                    endpoint,
+                    year,
+                    newRecords: totalNewRecords,
+                    duplicatesSkipped: totalDuplicatesSkipped,
+                    totalRecords: finalFileInfo.recordCount,
+                    filePath: getFilePath(endpoint, year),
+                    isComplete: false,
+                    error: `Sync interrupted: ${error.message}`,
+                    verificationStatus: 'unchecked'
                 });
-                break;
             }
-
-            currentCursor = nextCursor;
-
-            // Update sync state after each batch
-            await updateSyncState(endpoint, year, {
-                lastCursor: currentCursor,
-                totalRecords: excelResult.totalRecords,
-                filePath: excelResult.filePath,
-            });
-
-            pagesFetched++;
-
-            // Small delay to be nice to the API
-            await new Promise((r) => setTimeout(r, 200));
         }
 
         // Get final file info
         const finalFileInfo = await getFileInfo(endpoint, year);
+
+        // If we didn't verify inside the loop (e.g. maxPages hit), verify now
+        if (finalVerification === 'unchecked' && isComplete) {
+            const currentState = await getSyncState(endpoint, year);
+            if (currentState && currentState.totalRecords === finalFileInfo.recordCount) {
+                finalVerification = 'verified';
+            } else {
+                finalVerification = 'mismatch';
+            }
+        }
 
         const syncResult: SyncResult = {
             success: true,
@@ -160,6 +250,7 @@ export async function POST(request: Request) {
             totalRecords: finalFileInfo.recordCount,
             filePath: getFilePath(endpoint, year),
             isComplete,
+            verificationStatus: finalVerification
         };
 
         return NextResponse.json(syncResult);

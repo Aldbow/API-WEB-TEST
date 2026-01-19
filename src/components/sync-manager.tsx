@@ -60,6 +60,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
     const [syncing, setSyncing] = useState<string | null>(null);
     const [batchSyncing, setBatchSyncing] = useState(false);
     const [syncProgress, setSyncProgress] = useState<Record<string, { status: string; records: number }>>({});
+    const [basePath, setBasePath] = useState<string>('');
 
     // Fetch sync status
     const fetchStatus = useCallback(async () => {
@@ -69,6 +70,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
             const data = await res.json();
             setStatuses(data.endpoints || []);
             setSchedule(data.schedule || null);
+            setBasePath(data.basePath || '');
         } catch (error) {
             console.error('Failed to fetch status:', error);
         } finally {
@@ -403,7 +405,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                 {/* Footer Info */}
                 <div className="text-xs text-slate-400 flex items-center gap-2 pt-2 border-t">
                     <FolderOpen className="h-3 w-3" />
-                    <span>Data disimpan ke: D:/INAPROC-Data/</span>
+                    <span>Data disimpan ke: {basePath}</span>
                 </div>
             </CardContent>
         </Card>

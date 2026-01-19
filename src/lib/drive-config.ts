@@ -7,7 +7,7 @@ import * as path from 'path';
 
 // Base path can be overridden by environment variable
 export const DRIVE_CONFIG = {
-  basePath: process.env.INAPROC_DATA_PATH || 'D:/INAPROC-Data',
+  basePath: process.env.SYNC_LOCATION || process.env.INAPROC_DATA_PATH || 'C:/Users/User/Documents/Aldiva/01 - DATABASE INAPROC LKPP',
 
   // Mapping endpoint path prefix to folder name
   folderMapping: {
