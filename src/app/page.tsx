@@ -383,7 +383,7 @@ export default function Home() {
                             <CardContent className="p-0 flex-1 overflow-hidden relative">
                                 <div className="absolute inset-0 overflow-auto">
 
-                                    <Table className="w-max min-w-full">
+                                    <table data-slot="table" className="caption-bottom text-sm w-max min-w-full">
                                         <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
                                             <TableRow className="bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50/50">
                                                 <TableHead className="w-[50px] whitespace-nowrap">No</TableHead>
@@ -445,8 +445,7 @@ export default function Home() {
                                                 ))
                                             )}
                                         </TableBody>
-                                    </Table>
-
+                                    </table>
                                 </div>
                             </CardContent>
                             {
