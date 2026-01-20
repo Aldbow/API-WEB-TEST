@@ -25,7 +25,7 @@ import {
     PlayCircle,
     PauseCircle,
 } from 'lucide-react';
-import { ENDPOINTS } from '@/lib/constants';
+import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
 
 interface SyncState {
     lastCursor: string | null;
@@ -106,8 +106,8 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                     body: JSON.stringify({
                         endpoint,
                         year,
-                        batchSize: 100,
-                        maxPages: 5, // Process 5 pages at a time
+                        batchSize: 200, // Increased for speed
+                        maxPages: 25, // Process 25 pages (5000 records) per batch write
                     }),
                 });
 
@@ -152,11 +152,12 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
         }
     };
 
-    // Batch sync all endpoints
+    // Batch sync all endpoints (excluding detail endpoints that require IDs)
     const batchSync = async () => {
         setBatchSyncing(true);
+        const syncableEndpoints = getSyncableEndpoints();
 
-        for (const ep of ENDPOINTS) {
+        for (const ep of syncableEndpoints) {
             if (!batchSyncing) break; // Allow cancellation
             await syncEndpoint(ep.value);
         }

@@ -16,15 +16,17 @@ import {
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, Filter, Database, TrendingUp, DollarSign, Eye, Download, Archive, Network, FolderSync, TableIcon } from "lucide-react";
+import { Loader2, Search, Filter, Database, TrendingUp, DollarSign, Eye, Download, Archive, Network, FolderSync, TableIcon, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DetailSheet } from "@/components/detail-sheet";
 import { SyncManager } from "@/components/sync-manager";
-import { ENDPOINTS } from "@/lib/constants";
+import { ENDPOINTS, Endpoint } from "@/lib/constants";
 
 // Mock Badge if I missed adding it, or just use span with classes if lazy. 
 // But better to add it. I'll use standard tailwind classes for now to be safe.
@@ -39,6 +41,11 @@ export default function Home() {
     const [search, setSearch] = useState('');
     const [cursor, setCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
+
+    // Client-side pagination state for Legacy endpoints
+    const [allLegacyData, setAllLegacyData] = useState<any[]>([]);
+    const [legacyPage, setLegacyPage] = useState(0);
+    const ROWS_PER_PAGE = 50;
 
     // Sheet state
     const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -146,6 +153,27 @@ export default function Home() {
     const [stats, setStats] = useState({ totalItems: 0, totalPagu: 0 });
 
     const fetchData = async (reset = false, nextCursor: string | null = null) => {
+        // Check if endpoint is restricted
+        const currentEp = ENDPOINTS.find(ep => ep.value === selectedEndpoint);
+        if (currentEp?.requiresId) {
+            setLoading(false);
+            setData([]); // Clear data
+            return;
+        }
+
+        // Client-side pagination logic for Legacy
+        if (!reset && nextCursor === 'CLIENT_SIDE' && allLegacyData.length > 0) {
+            const nextPage = legacyPage + 1;
+            const start = nextPage * ROWS_PER_PAGE;
+            const end = start + ROWS_PER_PAGE;
+            const nextChunk = allLegacyData.slice(start, end);
+
+            setData(prev => [...prev, ...nextChunk]);
+            setLegacyPage(nextPage);
+            setHasMore(end < allLegacyData.length);
+            return;
+        }
+
         setLoading(true);
         try {
             const query = new URLSearchParams({
@@ -153,7 +181,7 @@ export default function Home() {
                 limit: '50',
                 endpoint: selectedEndpoint,
             });
-            if (nextCursor) {
+            if (nextCursor && nextCursor !== 'CLIENT_SIDE') {
                 query.set('cursor', nextCursor);
             }
             if (search) {
@@ -165,18 +193,34 @@ export default function Home() {
 
             if (result.data) {
                 if (reset) {
-                    setData(result.data);
+                    // Check if it's a large legacy response (array without server pagination)
+                    // My normalized legacy API returns { data: [...], meta: { total: N }, has_more: false }
+                    const isLegacyLarge = result.meta?.total > ROWS_PER_PAGE && result.has_more === false;
+
+                    if (isLegacyLarge) {
+                        // Store massive dataset in memory and paginate locally
+                        setAllLegacyData(result.data);
+                        setData(result.data.slice(0, ROWS_PER_PAGE));
+                        setLegacyPage(0);
+                        setHasMore(true);
+                        setCursor('CLIENT_SIDE');
+                    } else {
+                        // Standard V1 or small legacy
+                        setAllLegacyData([]);
+                        setData(result.data);
+                        const newCursor = result.cursor || (result.meta && result.meta.cursor);
+                        setCursor(newCursor);
+                        setHasMore(!!newCursor);
+                    }
                 } else {
                     setData(prev => {
-                        // We can't use ID checks easily on dynamic endpoints, so we'll just append
-                        // Or use a simple heuristic if we know the ID field name (e.g. kd_paket)
                         return [...prev, ...result.data];
                     });
-                }
 
-                const newCursor = result.cursor || (result.meta && result.meta.cursor);
-                setCursor(newCursor);
-                setHasMore(!!newCursor);
+                    const newCursor = result.cursor || (result.meta && result.meta.cursor);
+                    setCursor(newCursor);
+                    setHasMore(!!newCursor);
+                }
             } else {
                 if (reset) setData([]);
             }
@@ -206,8 +250,11 @@ export default function Home() {
             }
             return acc;
         }, 0);
-        setStats({ totalItems: data.length, totalPagu });
-    }, [data]);
+
+        // If client-side pagination is active, show the TOTAL records, not just rendered ones
+        const totalCount = allLegacyData.length > 0 ? allLegacyData.length : data.length;
+        setStats({ totalItems: totalCount, totalPagu });
+    }, [data, allLegacyData]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -347,17 +394,39 @@ export default function Home() {
                             <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
                                 {/* Endpoint Selector */}
                                 <Select value={selectedEndpoint} onValueChange={setSelectedEndpoint}>
-                                    <SelectTrigger className="w-[280px] h-10 bg-slate-100 dark:bg-slate-800 border-none font-medium">
+                                    <SelectTrigger className="w-[320px] h-10 bg-slate-100 dark:bg-slate-800 border-none font-medium">
                                         <SelectValue placeholder="Select Endpoint" />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[400px]">
-                                        {ENDPOINTS.map((ep) => (
-                                            <SelectItem key={ep.value} value={ep.value}>
-                                                {ep.label}
-                                            </SelectItem>
-                                        ))}
+                                        <SelectGroup>
+                                            <SelectLabel className="text-blue-600 font-semibold flex items-center gap-2">
+                                                📦 V1 Endpoints
+                                            </SelectLabel>
+                                            {ENDPOINTS.filter(ep => ep.type === 'v1').map((ep) => (
+                                                <SelectItem key={ep.value} value={ep.value}>
+                                                    {ep.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                        <SelectGroup>
+                                            <SelectLabel className="text-amber-600 font-semibold flex items-center gap-2 pt-2">
+                                                📜 Legacy Endpoints
+                                            </SelectLabel>
+                                            {ENDPOINTS.filter(ep => ep.type === 'legacy').map((ep) => (
+                                                <SelectItem key={ep.value} value={ep.value}>
+                                                    {ep.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
                                     </SelectContent>
                                 </Select>
+
+                                {ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.requiresId && (
+                                    <div className="text-xs text-amber-600 font-medium flex items-center gap-1 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        Requires Specific ID
+                                    </div>
+                                )}
 
                                 <Button variant="outline" className="gap-2" onClick={() => fetchData(true)} disabled={loading || isExporting}>
                                     <Filter className="h-4 w-4" />
@@ -375,99 +444,112 @@ export default function Home() {
                         </div>
 
                         {/* Enhanced Data Table */}
-                        < Card className="bg-white dark:bg-slate-900 shadow-sm border-none overflow-hidden flex flex-col h-[600px] relative z-0" >
-                            <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
-                                <CardTitle>{ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.label || 'Data Paket'}</CardTitle>
-                                <CardDescription>Archive data from INAPROC API. Click row or eye icon for details.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-0 flex-1 overflow-hidden relative">
-                                <div className="absolute inset-0 overflow-auto">
+                        {ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.requiresId ? (
+                            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-8 flex flex-col items-center justify-center text-center gap-3 text-amber-800 dark:text-amber-200 mt-4">
+                                <AlertTriangle className="h-10 w-10 opacity-80" />
+                                <div>
+                                    <h4 className="font-semibold text-lg">Restricted Endpoint</h4>
+                                    <p className="max-w-md mx-auto mt-1 text-amber-700 dark:text-amber-300">
+                                        This endpoint ("{ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.label}") requires specific parameters (like ID) to fetch data.
+                                        It cannot be browsed directly without a specific ID context.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <Card className="bg-white dark:bg-slate-900 shadow-sm border-none overflow-hidden flex flex-col h-[600px] relative z-0">
+                                <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
+                                    <CardTitle>{ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.label || 'Data Paket'}</CardTitle>
+                                    <CardDescription>Archive data from INAPROC API. Click row or eye icon for details.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-0 flex-1 overflow-hidden relative">
+                                    <div className="absolute inset-0 overflow-auto">
 
-                                    <table data-slot="table" className="caption-bottom text-sm w-max min-w-full">
-                                        <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
-                                            <TableRow className="bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50/50">
-                                                <TableHead className="w-[50px] whitespace-nowrap">No</TableHead>
-                                                {columns.map(key => (
-                                                    <TableHead key={key} className="whitespace-nowrap capitalize font-semibold text-slate-700 dark:text-slate-300">
-                                                        {key.replace(/_/g, ' ')}
-                                                    </TableHead>
-                                                ))}
-                                                <TableHead className="w-[50px]"></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {data.length === 0 && !loading ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={columns.length + 2} className="h-24 text-center text-slate-500">
-                                                        No data found.
-                                                    </TableCell>
+                                        <table data-slot="table" className="caption-bottom text-sm w-max min-w-full">
+                                            <TableHeader className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
+                                                <TableRow className="bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50/50">
+                                                    <TableHead className="w-[50px] whitespace-nowrap">No</TableHead>
+                                                    {columns.map(key => (
+                                                        <TableHead key={key} className="whitespace-nowrap capitalize font-semibold text-slate-700 dark:text-slate-300">
+                                                            {key.replace(/_/g, ' ')}
+                                                        </TableHead>
+                                                    ))}
+                                                    <TableHead className="w-[50px]"></TableHead>
                                                 </TableRow>
-                                            ) : (
-                                                data.map((item, index) => (
-                                                    <TableRow
-                                                        key={index}
-                                                        className="hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openDetails(item);
-                                                        }}
-                                                    >
-                                                        <TableCell className="font-medium text-slate-500 text-xs">{index + 1}</TableCell>
-                                                        {columns.map(key => {
-                                                            const val = item[key];
-                                                            let displayVal: React.ReactNode = val;
-
-                                                            if (val === null || val === undefined) displayVal = <span className="text-slate-300">-</span>;
-                                                            else if (typeof val === 'number' && (key.includes('harga') || key.includes('pagu') || key.includes('nilai') || key.includes('ongkos'))) {
-                                                                displayVal = <span className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(val)}</span>;
-                                                            } else if (typeof val === 'string' && (key.includes('tanggal') || val.match(/^\d{4}-\d{2}-\d{2}/))) {
-                                                                try {
-                                                                    displayVal = new Date(val).toLocaleDateString();
-                                                                } catch (e) { displayVal = val; }
-                                                            } else if (typeof val === 'object') {
-                                                                displayVal = <span className="italic text-xs text-slate-400">Object</span>;
-                                                            } else if (key.includes("status")) {
-                                                                displayVal = <Badge variant="secondary" className="text-[10px] h-5">{String(val)}</Badge>
-                                                            }
-
-                                                            return (
-                                                                <TableCell key={key} className="whitespace-nowrap text-xs max-w-[300px] truncate" title={String(val)}>
-                                                                    {displayVal}
-                                                                </TableCell>
-                                                            )
-                                                        })}
-                                                        <TableCell>
-                                                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8">
-                                                                <Eye className="h-4 w-4 text-blue-600" />
-                                                            </Button>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {data.length === 0 && !loading ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={columns.length + 2} className="h-24 text-center text-slate-500">
+                                                            No data found.
                                                         </TableCell>
                                                     </TableRow>
-                                                ))
-                                            )}
-                                        </TableBody>
-                                    </table>
-                                </div>
-                            </CardContent>
-                            {
-                                (hasMore || loading) && (
-                                    <div className="p-4 border-t flex justify-center bg-slate-50/30 shrink-0 relative z-20">
-                                        <Button
-                                            variant="ghost"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                loadMore();
-                                            }}
-                                            disabled={loading}
-                                            className="w-full max-w-xs gap-2"
-                                        >
-                                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                            {loading ? 'Loading more...' : 'Load More Data'}
-                                        </Button>
+                                                ) : (
+                                                    data.map((item, index) => (
+                                                        <TableRow
+                                                            key={index}
+                                                            className="hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openDetails(item);
+                                                            }}
+                                                        >
+                                                            <TableCell className="font-medium text-slate-500 text-xs">{index + 1}</TableCell>
+                                                            {columns.map(key => {
+                                                                const val = item[key];
+                                                                let displayVal: React.ReactNode = val;
+
+                                                                if (val === null || val === undefined) displayVal = <span className="text-slate-300">-</span>;
+                                                                else if (typeof val === 'number' && (key.includes('harga') || key.includes('pagu') || key.includes('nilai') || key.includes('ongkos'))) {
+                                                                    displayVal = <span className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(val)}</span>;
+                                                                } else if (typeof val === 'string' && (key.includes('tanggal') || val.match(/^\d{4}-\d{2}-\d{2}/))) {
+                                                                    try {
+                                                                        displayVal = new Date(val).toLocaleDateString();
+                                                                    } catch (e) { displayVal = val; }
+                                                                } else if (typeof val === 'object') {
+                                                                    displayVal = <span className="italic text-xs text-slate-400">Object</span>;
+                                                                } else if (key.includes("status")) {
+                                                                    displayVal = <Badge variant="secondary" className="text-[10px] h-5">{String(val)}</Badge>
+                                                                }
+
+                                                                return (
+                                                                    <TableCell key={key} className="whitespace-nowrap text-xs max-w-[300px] truncate" title={String(val)}>
+                                                                        {displayVal}
+                                                                    </TableCell>
+                                                                )
+                                                            })}
+                                                            <TableCell>
+                                                                <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8">
+                                                                    <Eye className="h-4 w-4 text-blue-600" />
+                                                                </Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </table>
                                     </div>
-                                )
-                            }
-                        </Card >
+                                </CardContent>
+                                {
+                                    (hasMore || loading) && (
+                                        <div className="p-4 border-t flex justify-center bg-slate-50/30 shrink-0 relative z-20">
+                                            <Button
+                                                variant="ghost"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    loadMore();
+                                                }}
+                                                disabled={loading}
+                                                className="w-full max-w-xs gap-2"
+                                            >
+                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                                {loading ? 'Loading more...' : 'Load More Data'}
+                                            </Button>
+                                        </div>
+                                    )
+                                }
+                            </Card>
+                        )}
                     </>
                 )}
 

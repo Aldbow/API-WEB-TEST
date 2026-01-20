@@ -11,10 +11,17 @@ export const DRIVE_CONFIG = {
 
   // Mapping endpoint path prefix to folder name
   folderMapping: {
-    '/v1/ekatalog-archive/': 'ekatalog-archive',
-    '/v1/ekatalog/': 'ekatalog',
-    '/v1/rup/': 'rup',
-    '/v1/tender/': 'tender',
+    // V1 mappings
+    '/v1/ekatalog-archive/': 'v1/ekatalog-archive',
+    '/v1/ekatalog/': 'v1/ekatalog',
+    '/v1/rup/': 'v1/rup',
+    '/v1/tender/': 'v1/tender',
+
+    // Legacy mappings
+    '/legacy/ekatalog-archive/': 'legacy/ekatalog-archive',
+    '/legacy/ekatalog/': 'legacy/ekatalog',
+    '/legacy/rup/': 'legacy/rup',
+    '/legacy/tender/': 'legacy/tender',
   } as Record<string, string>,
 };
 
@@ -65,30 +72,30 @@ export function getFilePath(endpoint: string, year: string): string {
 export function getUniqueKeyFields(endpoint: string): string[] {
   // Map endpoints to their unique identifier fields
   const keyMappings: Record<string, string[]> = {
-    'paket-e-purchasing': ['kd_paket', 'kode_rup'],
-    'instansi-satker': ['kode_klpd', 'kode_satker'],
+    'paket-e-purchasing': ['kd_paket', 'kode_rup||kd_rup'],
+    'instansi-satker': ['kode_klpd||kd_klpd', 'kode_satker||kd_satker'],
     'komoditas-detail': ['id_komoditas', 'kode_produk'],
     'penyedia-detail': ['kd_penyedia', 'npwp'],
     'penyedia-distributor-detail': ['kd_penyedia', 'kd_distributor'],
-    'master-satker': ['kode_klpd', 'kode_satker'],
-    'paket-anggaran-penyedia': ['kode_rup'],
-    'paket-anggaran-swakelola': ['kode_rup'],
-    'paket-penyedia-terumumkan': ['kode_rup'],
-    'paket-swakelola-terumumkan': ['kode_rup'],
-    'program-master': ['kode_program'],
-    'jadwal-tahapan-non-tender': ['kode_rup', 'kode_tahap'],
-    'jadwal-tahapan-tender': ['kode_rup', 'kode_tahap'],
-    'non-tender-ekontrak-kontrak': ['kode_rup', 'kd_kontrak'],
-    'non-tender-pengumuman': ['kode_rup'],
-    'non-tender-selesai': ['kode_rup'],
-    'pencatatan-non-tender': ['kode_rup'],
-    'pencatatan-non-tender-realisasi': ['kode_rup', 'id_realisasi'],
-    'pencatatan-swakelola': ['kode_rup'],
-    'pencatatan-swakelola-realisasi': ['kode_rup', 'id_realisasi'],
-    'pengumuman': ['kode_rup'],
-    'peserta-tender': ['kode_rup', 'kd_penyedia'],
-    'tender-ekontrak-kontrak': ['kode_rup', 'kd_kontrak'],
-    'tender-selesai-nilai': ['kode_rup'],
+    'master-satker': ['kode_klpd||kd_klpd', 'kode_satker||kd_satker'],
+    'paket-anggaran-penyedia': ['kode_rup||kd_rup'],
+    'paket-anggaran-swakelola': ['kode_rup||kd_rup'],
+    'paket-penyedia-terumumkan': ['kode_rup||kd_rup'],
+    'paket-swakelola-terumumkan': ['kode_rup||kd_rup'],
+    'program-master': ['kode_program||kd_program'],
+    'jadwal-tahapan-non-tender': ['kode_rup||kd_rup', 'kode_tahap'],
+    'jadwal-tahapan-tender': ['kode_rup||kd_rup', 'kode_tahap'],
+    'non-tender-ekontrak-kontrak': ['kode_rup||kd_rup', 'kd_kontrak'],
+    'non-tender-pengumuman': ['kode_rup||kd_rup'],
+    'non-tender-selesai': ['kode_rup||kd_rup'],
+    'pencatatan-non-tender': ['kode_rup||kd_rup'],
+    'pencatatan-non-tender-realisasi': ['kode_rup||kd_rup', 'id_realisasi'],
+    'pencatatan-swakelola': ['kode_rup||kd_rup'],
+    'pencatatan-swakelola-realisasi': ['kode_rup||kd_rup', 'id_realisasi'],
+    'pengumuman': ['kode_rup||kd_rup'],
+    'peserta-tender': ['kode_rup||kd_rup', 'kd_penyedia'],
+    'tender-ekontrak-kontrak': ['kode_rup||kd_rup', 'kd_kontrak'],
+    'tender-selesai-nilai': ['kode_rup||kd_rup'],
   };
 
   // Extract endpoint name from path

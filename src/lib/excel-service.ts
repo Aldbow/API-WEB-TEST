@@ -23,7 +23,20 @@ export interface ExcelOperationResult {
  */
 function generateRecordKey(record: any, keyFields: string[]): string {
     return keyFields
-        .map(field => String(record[field] || ''))
+        .map(field => {
+            // Support "OR" logic for fields (e.g. "kode_rup||kd_rup")
+            if (field.includes('||')) {
+                const options = field.split('||');
+                for (const opt of options) {
+                    // Check strict non-null/undefined. Empty string might be valid but usually ID is not empty.
+                    if (record[opt] !== undefined && record[opt] !== null && String(record[opt]).trim() !== '') {
+                        return String(record[opt]);
+                    }
+                }
+                return '';
+            }
+            return String(record[field] || '');
+        })
         .join('|');
 }
 

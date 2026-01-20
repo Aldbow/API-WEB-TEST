@@ -96,10 +96,26 @@ export async function POST(request: Request) {
             );
         }
 
-        // Basic security check
-        if (!endpoint.startsWith('/v1/')) {
+        // Basic security check - allow both v1 and legacy endpoints
+        if (!endpoint.startsWith('/v1/') && !endpoint.startsWith('/legacy/')) {
             return NextResponse.json(
                 { error: 'Invalid endpoint' },
+                { status: 400 }
+            );
+        }
+
+        // Block detail endpoints that require specific IDs (like kd_distributor)
+        const detailEndpoints = [
+            'penyedia-distributor-detail',
+            'komoditas-detail',
+            'penyedia-detail'
+        ];
+        if (detailEndpoints.some(de => endpoint.includes(de))) {
+            return NextResponse.json(
+                {
+                    error: 'This endpoint requires a specific ID parameter and cannot be synced in bulk',
+                    hint: 'Detail endpoints need additional parameters like kd_distributor or kd_komoditas'
+                },
                 { status: 400 }
             );
         }
@@ -132,11 +148,20 @@ export async function POST(request: Request) {
         let pagesFetched = 0;
         let isComplete = false;
 
+        let accumulatedData: any[] = [];
+        let finalCursor: string | null = currentCursor;
+
         // Fetch data in pages
         while (pagesFetched < maxPages) {
             // Build API URL
             let apiUrl = `${BASE_URL}${endpoint}?limit=${batchSize}&tahun=${year}`;
-            apiUrl += `&kode_klpd=K34`;
+
+            // Add kode_klpd for ALL endpoints (both V1 and Legacy require it)
+            if (endpoint.startsWith('/v1/')) {
+                apiUrl += `&kode_klpd=K34`;
+            } else {
+                apiUrl += `&kode_klpd=K34`; // Explicitly for legacy too as confirmed
+            }
 
             if (currentCursor) {
                 apiUrl += `&cursor=${encodeURIComponent(currentCursor)}`;
@@ -158,74 +183,89 @@ export async function POST(request: Request) {
                 }
 
                 const result = await res.json();
-                const pageData = result.data || [];
+
+                // Legacy API returns data as direct array, V1 returns {data: [...]}
+                let pageData: any[];
+                let hasMoreData = false;
+                let nextCursor: string | null = null;
+
+                if (Array.isArray(result)) {
+                    // Legacy API: direct array response (no pagination)
+                    pageData = result;
+                    hasMoreData = false; // Legacy APIs typically return all data at once
+                } else {
+                    // V1 API: wrapped in data field with pagination
+                    pageData = result.data || result.rs || [];
+                    nextCursor = result.cursor || (result.meta && result.meta.cursor) || null;
+                    hasMoreData = !!nextCursor && result.has_more !== false;
+                }
 
                 if (pageData.length === 0) {
-                    isComplete = true;
-                    break;
-                }
-
-                // Append to Excel with deduplication
-                const excelResult = await appendToExcel(endpoint, year, pageData);
-
-                if (!excelResult.success) {
-                    throw new Error(excelResult.error || 'Failed to append to Excel');
-                }
-
-                totalNewRecords += excelResult.newRecords;
-                totalDuplicatesSkipped += excelResult.duplicatesSkipped;
-
-                // Get next cursor
-                const nextCursor = result.cursor || (result.meta && result.meta.cursor);
-
-                // Update state
-                const newState = {
-                    lastCursor: nextCursor || null,
-                    totalRecords: excelResult.totalRecords,
-                    filePath: excelResult.filePath,
-                };
-
-                await updateSyncState(endpoint, year, newState);
-
-                if (!nextCursor || result.has_more === false) {
-                    isComplete = true;
-                    // Final Verification Check
-                    const finalFileCheck = await getFileInfo(endpoint, year);
-                    if (finalFileCheck.recordCount === newState.totalRecords) {
-                        finalVerification = 'verified';
-                    } else {
-                        console.warn(`Verification Mismatch for ${endpoint} ${year}: State says ${newState.totalRecords}, File has ${finalFileCheck.recordCount}`);
-                        finalVerification = 'mismatch';
+                    // No more data on this page
+                    if (pagesFetched === 0 && accumulatedData.length === 0) {
+                        isComplete = true; // Truly empty
                     }
                     break;
                 }
 
+                // Accumulate data
+                accumulatedData.push(...pageData);
+
+                // Update cursors for next iteration
+                finalCursor = nextCursor;
                 currentCursor = nextCursor;
                 pagesFetched++;
+
+                // Check if we should continue fetching
+                if (!hasMoreData) {
+                    isComplete = true;
+                    break;
+                }
 
                 // Small delay to be nice to the API
                 await new Promise((r) => setTimeout(r, 200));
 
             } catch (error: any) {
-                // If we hit an error after retries, we return partial success so we don't lose progress
                 console.error(`Error during sync page ${pagesFetched + 1}:`, error);
-
-                // Get final file info to return accurate status
-                const finalFileInfo = await getFileInfo(endpoint, year);
-
-                return NextResponse.json({
-                    success: true, // true because we might have saved some data
-                    endpoint,
-                    year,
-                    newRecords: totalNewRecords,
-                    duplicatesSkipped: totalDuplicatesSkipped,
-                    totalRecords: finalFileInfo.recordCount,
-                    filePath: getFilePath(endpoint, year),
-                    isComplete: false,
-                    error: `Sync interrupted: ${error.message}`,
-                    verificationStatus: 'unchecked'
-                });
+                // Stop fetching on error, but save what we have accumulated so far
+                break;
             }
+        }
+
+        // Bulk Write to Excel (if we have data)
+        if (accumulatedData.length > 0) {
+            console.log(`Bulk writing ${accumulatedData.length} records...`);
+            const excelResult = await appendToExcel(endpoint, year, accumulatedData);
+
+            if (!excelResult.success) {
+                throw new Error(excelResult.error || 'Failed to append to Excel');
+            }
+
+            totalNewRecords = excelResult.newRecords;
+            totalDuplicatesSkipped = excelResult.duplicatesSkipped;
+
+            // Update state ONLY after successful write
+            const newState = {
+                lastCursor: finalCursor || null,
+                totalRecords: excelResult.totalRecords,
+                filePath: excelResult.filePath,
+            };
+
+            await updateSyncState(endpoint, year, newState);
+
+            // Final verification logic
+            if (isComplete) {
+                const finalFileCheck = await getFileInfo(endpoint, year);
+                if (finalFileCheck.recordCount === newState.totalRecords) {
+                    finalVerification = 'verified';
+                } else {
+                    finalVerification = 'mismatch';
+                }
+            }
+        } else if (isComplete && totalNewRecords === 0) {
+            // Handle case where we marked generic complete but had no data to write (e.g. empty final page or legacy empty)
+            // We still might need to verify existing state if we thought we were starting fresh?
+            // But usually if accumulatedData is 0, we did nothing.
         }
 
         // Get final file info

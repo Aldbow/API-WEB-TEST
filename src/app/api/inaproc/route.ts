@@ -23,8 +23,7 @@ export async function GET(request: Request) {
     try {
         let apiUrl = `${BASE_URL}${endpoint}?limit=${limit}&tahun=${year}`;
 
-        // Only add kode_klpd if it's the archive/purchasing endpoint or if generic?
-        // Including it for all for now as per previous logic, but might need adjustment for specific endpoints.
+        // Add kode_klpd for ALL endpoints (both V1 and Legacy require it)
         apiUrl += `&kode_klpd=K34`;
 
         if (cursor) {
@@ -45,6 +44,16 @@ export async function GET(request: Request) {
         }
 
         const data = await res.json();
+
+        // Normalize Legacy API response (direct array) to standard format
+        if (Array.isArray(data)) {
+            return NextResponse.json({
+                data: data,
+                meta: { total: data.length },
+                has_more: false // Legacy typically returns all data at once
+            });
+        }
+
         return NextResponse.json(data);
 
     } catch (error: any) {
