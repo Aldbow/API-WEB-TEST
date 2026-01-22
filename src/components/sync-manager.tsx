@@ -20,7 +20,6 @@ import {
     AlertCircle,
     Clock,
     FolderOpen,
-    Calendar,
     Zap,
     PlayCircle,
     PauseCircle,
@@ -90,6 +89,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
     // Sync a single endpoint
     const syncEndpoint = async (endpoint: string) => {
         setSyncing(endpoint);
+
         setSyncProgress((prev) => ({
             ...prev,
             [endpoint]: { status: 'syncing', records: 0 },
@@ -139,7 +139,10 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                 [endpoint]: { status: 'complete', records: prev[endpoint]?.records || 0 },
             }));
 
-            await fetchStatus();
+            // Only refetch status if NOT in a batch process (optimization) to avoid flickering
+            if (!batchSyncing) {
+                await fetchStatus();
+            }
             onSyncComplete?.();
         } catch (error: any) {
             console.error('Sync error:', error);
@@ -158,7 +161,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
         const syncableEndpoints = getSyncableEndpoints();
 
         for (const ep of syncableEndpoints) {
-            if (!batchSyncing) break; // Allow cancellation
+            if (!batchSyncing) break; // Allow cancellation logic if we add it
             await syncEndpoint(ep.value);
         }
 
@@ -310,7 +313,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                 <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-lg p-4 border border-indigo-100 dark:border-indigo-900">
                     <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-3">
-                            <Calendar className="h-5 w-5 text-indigo-600" />
+                            <Clock className="h-5 w-5 text-indigo-600" />
                             <div>
                                 <h4 className="font-semibold text-sm">Auto-Sync Schedule</h4>
                                 <p className="text-xs text-slate-500">
@@ -327,7 +330,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                                     updateSchedule({ type: value as 'daily' | 'weekly' })
                                 }
                             >
-                                <SelectTrigger className="w-[120px] h-8 text-xs">
+                                <SelectTrigger className="w-[120px] h-8 text-xs bg-white dark:bg-slate-900">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

@@ -26,6 +26,7 @@ import { Loader2, Search, Filter, Database, TrendingUp, DollarSign, Eye, Downloa
 import { Badge } from "@/components/ui/badge";
 import { DetailSheet } from "@/components/detail-sheet";
 import { SyncManager } from "@/components/sync-manager";
+import { RangeSyncManager } from "@/components/range-sync-manager";
 import { ENDPOINTS, Endpoint } from "@/lib/constants";
 
 // Mock Badge if I missed adding it, or just use span with classes if lazy. 
@@ -51,8 +52,8 @@ export default function Home() {
     const [selectedItem, setSelectedItem] = useState<any | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-    // Tab state: 'browser' or 'sync'
-    const [activeTab, setActiveTab] = useState<'browser' | 'sync'>('browser');
+    // Tab state: 'browser' | 'sync' | 'range-sync'
+    const [activeTab, setActiveTab] = useState<'browser' | 'sync' | 'range-sync'>('browser');
 
     // Dynamic Columns Helper
     const getDynamicColumns = () => {
@@ -353,7 +354,7 @@ export default function Home() {
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="flex gap-2 bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border">
+                <div className="flex gap-2 bg-white dark:bg-slate-900 p-2 rounded-lg shadow-sm border overflow-x-auto">
                     <Button
                         variant={activeTab === 'browser' ? 'default' : 'ghost'}
                         className={`gap-2 ${activeTab === 'browser' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
@@ -370,7 +371,20 @@ export default function Home() {
                         <FolderSync className="h-4 w-4" />
                         Sync Manager
                     </Button>
+                    <Button
+                        variant={activeTab === 'range-sync' ? 'default' : 'ghost'}
+                        className={`gap-2 ${activeTab === 'range-sync' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                        onClick={() => setActiveTab('range-sync')}
+                    >
+                        <TrendingUp className="h-4 w-4" />
+                        Range Sync
+                    </Button>
                 </div>
+
+                {/* Range Sync Tab */}
+                {activeTab === 'range-sync' && (
+                    <RangeSyncManager />
+                )}
 
                 {/* Sync Manager Tab */}
                 {activeTab === 'sync' && (

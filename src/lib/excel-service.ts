@@ -179,6 +179,68 @@ export async function appendToExcel(
 }
 
 /**
+ * Overwrite Excel file with new data (Safe Full Sync)
+ * Used for Legacy endpoints to ensure no duplicates by replacing the entire file
+ */
+export async function overwriteExcel(
+    endpoint: string,
+    year: string,
+    allData: any[]
+): Promise<ExcelOperationResult> {
+    const filePath = getFilePath(endpoint, year);
+    const keyFields = getUniqueKeyFields(endpoint);
+
+    try {
+        // Ensure folder exists
+        await ensureEndpointFolder(endpoint);
+
+        console.log(`Overwrite Strategy: Writing ${allData.length} records to ${filePath}`);
+
+        // Create new workbook
+        const workbook = XLSX.utils.book_new();
+
+        // Add data sheet
+        const dataSheet = XLSX.utils.json_to_sheet(allData);
+        XLSX.utils.book_append_sheet(workbook, dataSheet, `Data ${year}`);
+
+        // Add metadata sheet
+        const metaData = [{
+            endpoint,
+            year,
+            keyFields: JSON.stringify(keyFields),
+            lastUpdated: new Date().toISOString(),
+            totalRecords: allData.length,
+            syncType: 'overwrite'
+        }];
+        const metaSheet = XLSX.utils.json_to_sheet(metaData);
+        XLSX.utils.book_append_sheet(workbook, metaSheet, '_metadata');
+
+        // Write file (overwriting existing)
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        fs.writeFileSync(filePath, buffer);
+        console.log('Excel file overwritten successfully');
+
+        return {
+            success: true,
+            newRecords: allData.length, // In overwrite mode, all records are "freshly written"
+            duplicatesSkipped: 0,
+            totalRecords: allData.length,
+            filePath,
+        };
+    } catch (error: any) {
+        console.error('Error overwriting Excel:', error);
+        return {
+            success: false,
+            newRecords: 0,
+            duplicatesSkipped: 0,
+            totalRecords: 0,
+            filePath,
+            error: error.message,
+        };
+    }
+}
+
+/**
  * Get file info for an endpoint/year
  */
 export async function getFileInfo(

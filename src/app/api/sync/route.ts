@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSyncState, updateSyncState, ensureEndpointFolder } from '@/lib/sync-state';
-import { appendToExcel, getFileInfo } from '@/lib/excel-service';
+import { appendToExcel, overwriteExcel, getFileInfo } from '@/lib/excel-service';
 import { getFilePath } from '@/lib/drive-config';
 
 const BASE_URL = 'https://data.inaproc.id/api';
@@ -235,7 +235,22 @@ export async function POST(request: Request) {
         // Bulk Write to Excel (if we have data)
         if (accumulatedData.length > 0) {
             console.log(`Bulk writing ${accumulatedData.length} records...`);
-            const excelResult = await appendToExcel(endpoint, year, accumulatedData);
+
+            let excelResult;
+
+            const isLegacy = endpoint.startsWith('/legacy/');
+
+            // For Legacy + Complete Fetch, use Overwrite to ensure no duplicates
+            if (isLegacy && isComplete) {
+                console.log('Legacy Endpoint + Full Fetch detected: Using Overwrite Strategy');
+                excelResult = await overwriteExcel(endpoint, year, accumulatedData);
+            } else {
+                if (isLegacy && !isComplete) {
+                    console.warn('Legacy sync incomplete! Falling back to Append Strategy.');
+                }
+                const res = await appendToExcel(endpoint, year, accumulatedData);
+                excelResult = res;
+            }
 
             if (!excelResult.success) {
                 throw new Error(excelResult.error || 'Failed to append to Excel');
