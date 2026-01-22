@@ -381,23 +381,23 @@ export default function Home() {
                 {activeTab === 'browser' && (
                     <>
                         {/* Filters & Actions */}
-                        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border sticky top-16 z-30">
-                            <form onSubmit={handleSearch} className="relative w-full md:w-96">
+                        <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border sticky top-16 z-30">
+                            <form onSubmit={handleSearch} className="relative w-full xl:w-96 shrink-0">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                                 <Input
                                     placeholder="Search packages..."
-                                    className="pl-9 bg-slate-50 dark:bg-slate-950 border-none focus-visible:ring-1"
+                                    className="pl-9 bg-slate-50 dark:bg-slate-950 border-none focus-visible:ring-1 w-full"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </form>
-                            <div className="flex gap-2 w-full md:w-auto items-center flex-wrap">
+                            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto items-stretch sm:items-center">
                                 {/* Endpoint Selector */}
                                 <Select value={selectedEndpoint} onValueChange={setSelectedEndpoint}>
-                                    <SelectTrigger className="w-[320px] h-10 bg-slate-100 dark:bg-slate-800 border-none font-medium">
+                                    <SelectTrigger className="w-full sm:w-[280px] h-10 bg-slate-100 dark:bg-slate-800 border-none font-medium">
                                         <SelectValue placeholder="Select Endpoint" />
                                     </SelectTrigger>
-                                    <SelectContent className="max-h-[400px]">
+                                    <SelectContent className="max-h-[400px] w-[var(--radix-select-trigger-width)]">
                                         <SelectGroup>
                                             <SelectLabel className="text-blue-600 font-semibold flex items-center gap-2">
                                                 📦 V1 Endpoints
@@ -422,24 +422,26 @@ export default function Home() {
                                 </Select>
 
                                 {ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.requiresId && (
-                                    <div className="text-xs text-amber-600 font-medium flex items-center gap-1 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                                    <div className="text-xs text-amber-600 font-medium flex items-center gap-1 bg-amber-50 px-2 py-1 rounded border border-amber-200 justify-center sm:justify-start">
                                         <AlertTriangle className="h-3 w-3" />
-                                        Requires Specific ID
+                                        Requires ID
                                     </div>
                                 )}
 
-                                <Button variant="outline" className="gap-2" onClick={() => fetchData(true)} disabled={loading || isExporting}>
-                                    <Filter className="h-4 w-4" />
-                                    Reset / Refresh
-                                </Button>
-                                <Button
-                                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    onClick={handleExport}
-                                    disabled={loading || isExporting}
-                                >
-                                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                                    {isExporting ? `Exporting (${exportProgress})...` : 'Export to Excel'}
-                                </Button>
+                                <div className="flex gap-2 flex-1 sm:flex-none">
+                                    <Button variant="outline" className="gap-2 flex-1 sm:flex-none" onClick={() => fetchData(true)} disabled={loading || isExporting}>
+                                        <Filter className="h-4 w-4" />
+                                        Reset
+                                    </Button>
+                                    <Button
+                                        className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white flex-1 sm:flex-none"
+                                        onClick={handleExport}
+                                        disabled={loading || isExporting}
+                                    >
+                                        {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                        {isExporting ? `Exporting...` : 'Export'}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
 

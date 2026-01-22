@@ -106,8 +106,8 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                     body: JSON.stringify({
                         endpoint,
                         year,
-                        batchSize: 200, // Increased for speed
-                        maxPages: 25, // Process 25 pages (5000 records) per batch write
+                        batchSize: 100, // Max limit allowed by API
+                        maxPages: 50, // Process 50 pages (5000 records) per batch write
                     }),
                 });
 
@@ -264,6 +264,24 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                         >
                             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                                // Explicit sequential sync (working 1-by-1)
+                                if (syncing) return;
+                                const syncableEndpoints = getSyncableEndpoints();
+                                for (const ep of syncableEndpoints) {
+                                    await syncEndpoint(ep.value);
+                                }
+                                await fetchStatus();
+                            }}
+                            disabled={syncing !== null || batchSyncing}
+                            className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50"
+                        >
+                            <PlayCircle className="h-4 w-4 mr-1" />
+                            Auto Sync (Seq)
                         </Button>
                         <Button
                             size="sm"
