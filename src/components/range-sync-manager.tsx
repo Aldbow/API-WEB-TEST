@@ -15,10 +15,18 @@ import {
     Calendar,
     Zap,
     History,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Activity,
+    AlertCircle,
+    CheckCircle2,
+    ArrowRight
 } from 'lucide-react';
 import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
 import { Progress } from '@/components/ui/progress';
+import { FadeIn, SlideUp } from './ui/motion-primitives';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function RangeSyncManager() {
     const [rangeSyncConfig, setRangeSyncConfig] = useState({
@@ -167,204 +175,268 @@ export function RangeSyncManager() {
     const errors = stats.filter(s => s.status === 'error').length;
 
     return (
-        <div className="space-y-6">
-            <Card className="bg-white dark:bg-slate-900 border-none shadow-sm">
-                <CardHeader className="border-b bg-emerald-50/50 dark:bg-emerald-950/20">
-                    <CardTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                        <History className="h-5 w-5" />
-                        Range Sync Manager
-                    </CardTitle>
-                    <CardDescription>
-                        Batch download and synchronize data across multiple years.
-                    </CardDescription>
+        <FadeIn className="space-y-6">
+            <Card className="glass-card">
+                <CardHeader className="border-b border-border/50 bg-secondary/20">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                            <History className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-xl">Range Sync Manager</CardTitle>
+                            <CardDescription>
+                                Batch download and synchronize data across multiple years.
+                            </CardDescription>
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                    {/* Category Tabs */}
-                    <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
-                        <Button
-                            variant={activeTab === 'v1' ? 'default' : 'ghost'}
-                            size="sm"
-                            className={activeTab === 'v1' ? 'bg-white text-emerald-700 shadow-sm hover:bg-white/90' : 'text-slate-500 hover:text-emerald-700'}
-                            onClick={() => setActiveTab('v1')}
-                        >
-                            V1 API (Modern)
-                        </Button>
-                        <Button
-                            variant={activeTab === 'legacy' ? 'default' : 'ghost'}
-                            size="sm"
-                            className={activeTab === 'legacy' ? 'bg-white text-amber-700 shadow-sm hover:bg-white/90' : 'text-slate-500 hover:text-amber-700'}
-                            onClick={() => setActiveTab('legacy')}
-                        >
-                            Legacy API (Archive)
-                        </Button>
-                    </div>
+                <CardContent className="p-6 space-y-8">
+                    {/* Configuration Section */}
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        <div className="flex-1 space-y-6">
+                            {/* Category Selection */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Sync Strategy</label>
+                                <div className="flex gap-2 p-1 bg-secondary/50 rounded-xl border border-border/50 w-full sm:w-fit">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={cn(
+                                            "flex-1 sm:flex-none transition-all rounded-lg text-sm",
+                                            activeTab === 'v1'
+                                                ? "bg-background text-primary shadow-sm ring-1 ring-border/50"
+                                                : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                        onClick={() => setActiveTab('v1')}
+                                    >
+                                        V1 API (Modern)
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={cn(
+                                            "flex-1 sm:flex-none transition-all rounded-lg text-sm",
+                                            activeTab === 'legacy'
+                                                ? "bg-background text-amber-600 dark:text-amber-500 shadow-sm ring-1 ring-border/50"
+                                                : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                        onClick={() => setActiveTab('legacy')}
+                                    >
+                                        Legacy API (Archive)
+                                    </Button>
+                                </div>
 
-                    {/* Strategy Info */}
-                    <div className={`text-xs p-3 rounded border ${activeTab === 'v1' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
-                        {activeTab === 'v1' ? (
-                            <p><strong>Strategy: Incremental Sync.</strong> Uses cursors to fetch only new data. Fast and efficient.</p>
-                        ) : (
-                            <p><strong>Strategy: Overwrite Sync.</strong> Downloads fresh full dataset and replaces existing files to guarantee no duplicates.</p>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col md:flex-row gap-6 items-end">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">From Year</label>
-                            <Select value={rangeSyncConfig.startYear} onValueChange={(v) => setRangeSyncConfig(prev => ({ ...prev, startYear: v }))}>
-                                <SelectTrigger className="w-[120px]">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
-                                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">To Year</label>
-                            <Select value={rangeSyncConfig.endYear} onValueChange={(v) => setRangeSyncConfig(prev => ({ ...prev, endYear: v }))}>
-                                <SelectTrigger className="w-[120px]">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
-                                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Button
-                            size="lg"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white w-full md:w-auto"
-                            onClick={handleRangeSync}
-                            disabled={rangeSyncConfig.isSyncing}
-                        >
-                            {rangeSyncConfig.isSyncing ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Syncing...
-                                </>
-                            ) : (
-                                <>
-                                    <Zap className="h-4 w-4 mr-2" />
-                                    Start Range Sync
-                                </>
-                            )}
-                        </Button>
-                    </div>
-
-                    {rangeSyncConfig.isSyncing && (
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-slate-500">
-                                <span>Progress</span>
-                                <span>{progress}%</span>
+                                <div className={cn(
+                                    "text-xs p-3 rounded-lg border",
+                                    activeTab === 'v1'
+                                        ? "bg-blue-50/50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 border-blue-200/50"
+                                        : "bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 border-amber-200/50"
+                                )}>
+                                    {activeTab === 'v1' ? (
+                                        <p className="flex items-center gap-2">
+                                            <Zap className="h-3 w-3" />
+                                            <strong>Incremental Sync:</strong> Uses cursors to fetch only new data. Fast and efficient.
+                                        </p>
+                                    ) : (
+                                        <p className="flex items-center gap-2">
+                                            <FileSpreadsheet className="h-3 w-3" />
+                                            <strong>Overwrite Sync:</strong> Downloads fresh full dataset and replaces existing files.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                            <Progress value={progress} className="h-2" />
-                            <div className="text-sm text-emerald-600 font-medium animate-pulse">
-                                {rangeSyncConfig.currentYear && syncingEndpoint ?
-                                    `Syncing ${ENDPOINTS.find(e => e.value === syncingEndpoint)?.label} (${rangeSyncConfig.currentYear})` :
-                                    'Preparing...'}
+
+                            {/* Year Selection */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-muted-foreground">From Year</label>
+                                    <Select value={rangeSyncConfig.startYear} onValueChange={(v) => setRangeSyncConfig(prev => ({ ...prev, startYear: v }))}>
+                                        <SelectTrigger className="w-full bg-background/50">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
+                                                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-muted-foreground">To Year</label>
+                                    <Select value={rangeSyncConfig.endYear} onValueChange={(v) => setRangeSyncConfig(prev => ({ ...prev, endYear: v }))}>
+                                        <SelectTrigger className="w-full bg-background/50">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
+                                                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <Button
+                                size="lg"
+                                className={cn(
+                                    "w-full h-12 text-base font-semibold shadow-xl transition-all",
+                                    rangeSyncConfig.isSyncing
+                                        ? "bg-secondary text-secondary-foreground"
+                                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                                )}
+                                onClick={handleRangeSync}
+                                disabled={rangeSyncConfig.isSyncing}
+                            >
+                                {rangeSyncConfig.isSyncing ? (
+                                    <>
+                                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                        Processing Batch Sync...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Zap className="h-5 w-5 mr-2" />
+                                        Start Range Sync
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+
+                        {/* Progress Panel */}
+                        <div className="flex-1">
+                            <div className="bg-secondary/20 rounded-xl border border-border/50 p-6 h-full flex flex-col justify-between">
+                                {rangeSyncConfig.isSyncing ? (
+                                    <div className="space-y-6 animate-in fade-in duration-500">
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-end">
+                                                <span className="text-sm font-medium text-primary">Total Progress</span>
+                                                <span className="text-2xl font-bold text-primary">{progress}%</span>
+                                            </div>
+                                            <Progress value={progress} className="h-3 bg-secondary" />
+                                        </div>
+
+                                        <div className="bg-background/80 backdrop-blur-sm rounded-lg p-4 border border-border/50 space-y-2">
+                                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                                <Activity className="h-4 w-4 animate-pulse text-emerald-500" />
+                                                Current Action
+                                            </div>
+                                            <div className="text-lg font-medium">
+                                                {rangeSyncConfig.currentYear && syncingEndpoint ? (
+                                                    <span className="flex items-center gap-2">
+                                                        Accessing {ENDPOINTS.find(e => e.value === syncingEndpoint)?.label}
+                                                        <Badge variant="outline">{rangeSyncConfig.currentYear}</Badge>
+                                                    </span>
+                                                ) : (
+                                                    'Initializing...'
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-8 opacity-60">
+                                        <div className="h-16 w-16 bg-muted-foreground/10 rounded-full flex items-center justify-center">
+                                            <ArrowRight className="h-8 w-8 text-muted-foreground" />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-foreground">Ready to start</p>
+                                            <p className="text-sm text-muted-foreground">Select year range and click Start</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
+                    </div>
+
+                    {/* Scorechart / Stats Panel */}
+                    {(stats.length > 0 || rangeSyncConfig.isSyncing) && (
+                        <SlideUp className="grid gap-6 md:grid-cols-3 pt-6 border-t border-border/50">
+                            {/* Summary Cards */}
+                            <div className="md:col-span-1 space-y-4">
+                                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Session Summary</h3>
+                                <div className="p-5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 text-emerald-900 dark:text-emerald-100">
+                                    <p className="text-xs font-bold uppercase opacity-60 mb-1">Total New Rows</p>
+                                    <p className="text-4xl font-bold tracking-tight">{totalNewRows.toLocaleString()}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="p-4 rounded-xl bg-secondary/50 border border-border/50">
+                                        <p className="text-xs text-muted-foreground">Processed</p>
+                                        <p className="text-xl font-semibold">{totalProcessed}</p>
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400">
+                                        <p className="text-xs opacity-70">Errors</p>
+                                        <p className="text-xl font-semibold">{errors}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Detailed Table */}
+                            <div className="md:col-span-2 flex flex-col">
+                                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-4">Detailed Breakdown</h3>
+                                <Card className="flex-1 bg-background/50 border-border/50">
+                                    <ScrollArea className="h-[300px]">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-secondary/50 text-muted-foreground font-medium sticky top-0 backdrop-blur-sm z-10">
+                                                <tr>
+                                                    <th className="px-4 py-3">Endpoint</th>
+                                                    <th className="px-4 py-3 w-[80px]">Year</th>
+                                                    <th className="px-4 py-3 text-right w-[100px]">New Rows</th>
+                                                    <th className="px-4 py-3 text-right">
+                                                        {activeTab === 'v1' ? 'Skipped' : 'Total Size'}
+                                                    </th>
+                                                    <th className="px-4 py-3 w-[40px]"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border/30">
+                                                {stats.map((row, i) => (
+                                                    <tr key={i} className={cn("hover:bg-secondary/30 transition-colors", row.newRecords > 0 ? "bg-emerald-500/5" : "")}>
+                                                        <td className="px-4 py-3 truncate max-w-[200px]" title={row.endpoint}>
+                                                            <span className="font-medium text-foreground">{row.endpoint.replace('Legacy:', '').replace('(Archive)', '').trim()}</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-muted-foreground">{row.year}</td>
+                                                        <td className={cn("px-4 py-3 text-right font-medium", row.newRecords > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+                                                            {row.newRecords > 0 ? `+${row.newRecords}` : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-muted-foreground font-mono text-xs">
+                                                            {row.duplicatesOrTotal.toLocaleString()}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            {row.status === 'success' ? (
+                                                                <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
+                                                            ) : (
+                                                                <AlertCircle className="h-4 w-4 text-red-500 mx-auto" title={row.message} />
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </ScrollArea>
+                                </Card>
+                            </div>
+                        </SlideUp>
                     )}
-                </CardContent>
-            </Card>
 
-            {/* Scorechart / Stats Panel */}
-            {(stats.length > 0 || rangeSyncConfig.isSyncing) && (
-                <div className="grid gap-6 md:grid-cols-3">
-                    {/* Summary Cards */}
-                    <Card className="md:col-span-1 bg-white dark:bg-slate-900 border shadow-sm h-fit">
-                        <CardHeader className="py-4 border-b">
-                            <CardTitle className="text-base">Sync Scorecard</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 space-y-4">
-                            <div className="p-4 rounded-lg bg-emerald-50 text-emerald-900">
-                                <p className="text-xs font-semibold uppercase opacity-70">Total New Rows</p>
-                                <p className="text-3xl font-bold">{totalNewRows.toLocaleString()}</p>
+                    {/* Logs Panel */}
+                    <div className="pt-4 border-t border-border/50">
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Operation Logs</h4>
+                            <Badge variant="outline" className="text-[10px] h-5">{logs.length} entries</Badge>
+                        </div>
+                        <ScrollArea className="h-[150px] rounded-lg border border-border/50 bg-secondary/10 dark:bg-black/20 p-2">
+                            <div className="font-mono text-xs space-y-1">
+                                {logs.length === 0 ? (
+                                    <span className="text-muted-foreground/50 italic p-2 block">No logs generated yet...</span>
+                                ) : (
+                                    logs.map((log, i) => (
+                                        <div key={i} className="border-b border-border/30 pb-1 last:border-0 last:pb-0 text-muted-foreground/80 break-all hover:bg-secondary/30 rounded px-1">
+                                            {log}
+                                        </div>
+                                    ))
+                                )}
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="p-3 rounded-lg bg-slate-50">
-                                    <p className="text-xs text-slate-500">Processed</p>
-                                    <p className="text-lg font-semibold">{totalProcessed}</p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-red-50 text-red-900">
-                                    <p className="text-xs opacity-70">Errors</p>
-                                    <p className="text-lg font-semibold">{errors}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Detailed Table */}
-                    <Card className="md:col-span-2 bg-white dark:bg-slate-900 border shadow-sm">
-                        <CardHeader className="py-4 border-b">
-                            <CardTitle className="text-base">Detailed Breakdown</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="max-h-[300px] overflow-y-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-slate-50 text-slate-500 font-medium sticky top-0">
-                                        <tr>
-                                            <th className="px-4 py-2">Endpoint</th>
-                                            <th className="px-4 py-2 w-[80px]">Year</th>
-                                            <th className="px-4 py-2 text-right w-[100px]">New Rows</th>
-                                            <th className="px-4 py-2 text-right">
-                                                {activeTab === 'v1' ? 'Skipped' : 'Total Size'}
-                                            </th>
-                                            <th className="px-4 py-2 w-[40px]"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {stats.map((row, i) => (
-                                            <tr key={i} className={`hover:bg-slate-50/50 ${row.newRecords > 0 ? 'bg-emerald-50/10' : ''}`}>
-                                                <td className="px-4 py-2 truncate max-w-[200px]" title={row.endpoint}>
-                                                    {row.endpoint.replace('Legacy:', '').replace('(Archive)', '').trim()}
-                                                </td>
-                                                <td className="px-4 py-2">{row.year}</td>
-                                                <td className={`px-4 py-2 text-right font-medium ${row.newRecords > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                    {row.newRecords > 0 ? `+${row.newRecords}` : '-'}
-                                                </td>
-                                                <td className="px-4 py-2 text-right text-slate-500">
-                                                    {row.duplicatesOrTotal.toLocaleString()}
-                                                </td>
-                                                <td className="px-4 py-2 text-center">
-                                                    {row.status === 'success' ? (
-                                                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                                                    ) : (
-                                                        <span className="inline-block w-2 h-2 rounded-full bg-red-500" title={row.message} />
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-
-            <Card className="bg-slate-50 dark:bg-slate-900 border shadow-inner">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-500">Operation Logs</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[150px] overflow-y-auto font-mono text-xs space-y-1 p-2 bg-white dark:bg-black rounded border">
-                        {logs.length === 0 ? (
-                            <span className="text-slate-400 italic">No logs yet...</span>
-                        ) : (
-                            logs.map((log, i) => (
-                                <div key={i} className="border-b border-slate-100 dark:border-slate-800 pb-1 last:border-0">
-                                    {log}
-                                </div>
-                            ))
-                        )}
+                        </ScrollArea>
                     </div>
                 </CardContent>
             </Card>
-        </div>
+        </FadeIn>
     );
 }

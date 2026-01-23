@@ -23,8 +23,12 @@ import {
     Zap,
     PlayCircle,
     PauseCircle,
+    Server,
 } from 'lucide-react';
 import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
+import { FadeIn } from './ui/motion-primitives';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface SyncState {
     lastCursor: string | null;
@@ -50,9 +54,10 @@ interface ScheduleConfig {
 interface SyncManagerProps {
     year: string;
     onSyncComplete?: () => void;
+    onYearChange: (year: string) => void;
 }
 
-export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
+export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerProps) {
     const [statuses, setStatuses] = useState<EndpointStatus[]>([]);
     const [schedule, setSchedule] = useState<ScheduleConfig | null>(null);
     const [loading, setLoading] = useState(false);
@@ -62,23 +67,25 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
     const [basePath, setBasePath] = useState<string>('');
 
     // Fetch sync status
-    const fetchStatus = useCallback(async () => {
+    const fetchStatus = useCallback(async (verify = false) => {
         setLoading(true);
         try {
-            const res = await fetch('/api/sync/status');
+            const res = await fetch(`/api/sync/status?verify=${verify}`);
             const data = await res.json();
             setStatuses(data.endpoints || []);
             setSchedule(data.schedule || null);
             setBasePath(data.basePath || '');
         } catch (error) {
             console.error('Failed to fetch status:', error);
+            toast.error("Failed to fetch sync status");
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchStatus();
+        // Initial load without heavy verification for speed
+        fetchStatus(false);
     }, [fetchStatus]);
 
     // Reset sync progress when year changes
@@ -89,7 +96,6 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
     // Sync a single endpoint
     const syncEndpoint = async (endpoint: string) => {
         setSyncing(endpoint);
-
         setSyncProgress((prev) => ({
             ...prev,
             [endpoint]: { status: 'syncing', records: 0 },
@@ -97,7 +103,6 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
 
         try {
             let isComplete = false;
-
 
             while (!isComplete) {
                 const res = await fetch('/api/sync', {
@@ -116,7 +121,6 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                 if (!result.success) {
                     throw new Error(result.error || 'Sync failed');
                 }
-
 
                 isComplete = result.isComplete;
 
@@ -139,9 +143,9 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                 [endpoint]: { status: 'complete', records: prev[endpoint]?.records || 0 },
             }));
 
-            // Only refetch status if NOT in a batch process (optimization) to avoid flickering
             if (!batchSyncing) {
-                await fetchStatus();
+                await fetchStatus(true); // Verify after sync
+                toast.success(`Sync for ${endpoint} completed!`);
             }
             onSyncComplete?.();
         } catch (error: any) {
@@ -150,6 +154,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                 ...prev,
                 [endpoint]: { status: 'error', records: 0 },
             }));
+            toast.error(`Sync failed for ${endpoint}`);
         } finally {
             setSyncing(null);
         }
@@ -159,6 +164,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
     const batchSync = async () => {
         setBatchSyncing(true);
         const syncableEndpoints = getSyncableEndpoints();
+        toast.info("Starting batch sync...");
 
         for (const ep of syncableEndpoints) {
             if (!batchSyncing) break; // Allow cancellation logic if we add it
@@ -166,7 +172,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
         }
 
         setBatchSyncing(false);
-        await fetchStatus();
+        await fetchStatus(true);
     };
 
     // Update schedule
@@ -179,14 +185,16 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
             });
             const data = await res.json();
             setSchedule(data.schedule);
+            toast.success("Schedule updated");
         } catch (error) {
             console.error('Failed to update schedule:', error);
+            toast.error("Failed to update schedule");
         }
     };
 
     // Format date
     const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return 'Belum pernah sync';
+        if (!dateStr) return 'Never synced';
         const date = new Date(dateStr);
         return date.toLocaleString('id-ID', {
             day: 'numeric',
@@ -204,7 +212,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
 
         if (progress?.status === 'syncing') {
             return (
-                <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700">
+                <Badge variant="secondary" className="gap-1 bg-blue-500/10 text-blue-600 animate-pulse border-blue-200">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Syncing...
                 </Badge>
@@ -213,7 +221,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
 
         if (progress?.status === 'complete') {
             return (
-                <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700">
+                <Badge variant="secondary" className="gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-200">
                     <CheckCircle className="h-3 w-3" />
                     Complete
                 </Badge>
@@ -222,7 +230,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
 
         if (progress?.status === 'error') {
             return (
-                <Badge variant="secondary" className="gap-1 bg-red-100 text-red-700">
+                <Badge variant="destructive" className="gap-1">
                     <AlertCircle className="h-3 w-3" />
                     Error
                 </Badge>
@@ -231,98 +239,95 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
 
         if (yearState) {
             return (
-                <Badge variant="secondary" className="gap-1 bg-slate-100 text-slate-700">
+                <Badge variant="outline" className="gap-1 border-muted-foreground/30 text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {yearState.state.totalRecords.toLocaleString()} records
+                    {yearState.state.totalRecords.toLocaleString()} recs
                 </Badge>
             );
         }
 
         return (
-            <Badge variant="outline" className="text-slate-400">
-                Belum sync
+            <Badge variant="outline" className="text-muted-foreground/50 border-dashed">
+                Ready to Sync
             </Badge>
         );
     };
 
     return (
-        <Card className="bg-white dark:bg-slate-900 border-none shadow-sm">
-            <CardHeader className="border-b bg-slate-50/50 dark:bg-slate-950/50">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <FolderOpen className="h-5 w-5 text-blue-600" />
-                            Sync Manager
-                        </CardTitle>
-                        <CardDescription>
-                            Download dan simpan data INAPROC ke folder lokal
-                        </CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={fetchStatus}
-                            disabled={loading}
-                        >
-                            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-                            Refresh
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={async () => {
-                                // Explicit sequential sync (working 1-by-1)
-                                if (syncing) return;
-                                const syncableEndpoints = getSyncableEndpoints();
-                                for (const ep of syncableEndpoints) {
-                                    await syncEndpoint(ep.value);
-                                }
-                                await fetchStatus();
-                            }}
-                            disabled={syncing !== null || batchSyncing}
-                            className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50"
-                        >
-                            <PlayCircle className="h-4 w-4 mr-1" />
-                            Auto Sync (Seq)
-                        </Button>
-                        <Button
-                            size="sm"
-                            onClick={batchSync}
-                            disabled={batchSyncing || syncing !== null}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                        >
-                            {batchSyncing ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                    Batch Syncing...
-                                </>
-                            ) : (
-                                <>
-                                    <Zap className="h-4 w-4 mr-1" />
-                                    Sync Semua
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </div>
-            </CardHeader>
+        <FadeIn>
+            <Card className="glass-card mb-6">
+                <CardHeader className="border-b border-border/50 pb-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <Server className="h-5 w-5 text-primary" />
+                                Sync Manager
+                            </CardTitle>
+                            <CardDescription>
+                                Manage local data synchronization from INAPROC servers.
+                            </CardDescription>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Select value={year} onValueChange={onYearChange}>
+                                <SelectTrigger className="w-[100px] h-9 bg-background/50 border-input shadow-sm">
+                                    <SelectValue placeholder="Year" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
+                                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
 
-            <CardContent className="p-4 space-y-4">
-                {/* Schedule Section */}
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-lg p-4 border border-indigo-100 dark:border-indigo-900">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fetchStatus(true)}
+                                disabled={loading}
+                                className="h-9"
+                            >
+                                <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+                                Refresh Status
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                onClick={batchSync}
+                                disabled={batchSyncing || syncing !== null}
+                                className="bg-primary hover:bg-primary/90 h-9 transition-all shadow-lg shadow-primary/20"
+                            >
+                                {batchSyncing ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Batch Syncing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Zap className="h-4 w-4 mr-2" />
+                                        Sync All Now
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                    {/* Schedule Banner */}
+                    <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-transparent p-4 rounded-xl border border-primary/10 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                            <Clock className="h-5 w-5 text-indigo-600" />
+                            <div className="h-10 w-10 bg-primary/20 rounded-full flex items-center justify-center">
+                                <Clock className="h-5 w-5 text-primary" />
+                            </div>
                             <div>
-                                <h4 className="font-semibold text-sm">Auto-Sync Schedule</h4>
-                                <p className="text-xs text-slate-500">
+                                <h4 className="font-semibold text-sm">Automated Schedule</h4>
+                                <p className="text-xs text-muted-foreground">
                                     {schedule?.lastRun
-                                        ? `Terakhir: ${formatDate(schedule.lastRun)}`
-                                        : 'Jadwalkan sync otomatis'}
+                                        ? `Last run: ${formatDate(schedule.lastRun)}`
+                                        : 'Configure auto-sync frequency'}
                                 </p>
                             </div>
                         </div>
+
                         <div className="flex items-center gap-2">
                             <Select
                                 value={schedule?.type || 'daily'}
@@ -330,106 +335,120 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                                     updateSchedule({ type: value as 'daily' | 'weekly' })
                                 }
                             >
-                                <SelectTrigger className="w-[120px] h-8 text-xs bg-white dark:bg-slate-900">
+                                <SelectTrigger className="w-[120px] h-8 text-xs bg-background/50 border-input">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="daily">Harian</SelectItem>
-                                    <SelectItem value="weekly">Mingguan</SelectItem>
+                                    <SelectItem value="daily">Daily</SelectItem>
+                                    <SelectItem value="weekly">Weekly</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Button
-                                variant={schedule?.enabled ? 'default' : 'outline'}
+                                variant={schedule?.enabled ? 'default' : 'secondary'}
                                 size="sm"
                                 onClick={() => updateSchedule({ enabled: !schedule?.enabled })}
-                                className={schedule?.enabled ? 'bg-green-600 hover:bg-green-700' : ''}
+                                className={cn("h-8 gap-2 transition-all", schedule?.enabled ? "bg-green-600 hover:bg-green-700 text-white" : "text-muted-foreground")}
                             >
                                 {schedule?.enabled ? (
                                     <>
-                                        <PauseCircle className="h-4 w-4 mr-1" />
-                                        Aktif
+                                        <PauseCircle className="h-3.5 w-3.5" />
+                                        Active
                                     </>
                                 ) : (
                                     <>
-                                        <PlayCircle className="h-4 w-4 mr-1" />
-                                        Aktifkan
+                                        <PlayCircle className="h-3.5 w-3.5" />
+                                        Enable
                                     </>
                                 )}
                             </Button>
                         </div>
                     </div>
-                </div>
 
-                {/* Endpoints List */}
-                <div className="space-y-2">
-                    <h4 className="font-semibold text-sm text-slate-600">
-                        Endpoints ({ENDPOINTS.length})
-                    </h4>
-                    <ScrollArea className="h-[400px] rounded-md border">
-                        <div className="p-2 space-y-1">
+                    {/* Endpoints Grid */}
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        Available Endpoints
+                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{ENDPOINTS.length}</Badge>
+                    </h3>
+
+                    <ScrollArea className="h-[450px] pr-4">
+                        <div className="grid grid-cols-1 gap-2">
                             {statuses.length === 0 && !loading ? (
-                                <div className="text-center py-8 text-slate-400">
-                                    Belum ada data sync
+                                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
+                                    No sync status available. Try refreshing.
                                 </div>
                             ) : (
                                 statuses.map((status) => {
                                     const yearState = status.years.find((y) => y.year === year);
                                     const progress = syncProgress[status.endpoint];
+                                    const isSyncingThis = syncing === status.endpoint;
 
                                     return (
-                                        <div
-                                            key={status.endpoint}
-                                            className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                                        >
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-sm truncate">
-                                                        {status.label}
-                                                    </span>
-                                                    {getStatusBadge(status.endpoint, status)}
-                                                </div>
-                                                <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-                                                    {yearState && (
-                                                        <>
-                                                            <span>📁 {yearState.state.filePath}</span>
-                                                            <span>•</span>
-                                                            <span>{formatDate(yearState.state.lastSyncDate)}</span>
-                                                        </>
-                                                    )}
-                                                    {progress?.records > 0 && (
-                                                        <span className="text-blue-500">
-                                                            {progress.records.toLocaleString()} records
+                                        <div key={status.endpoint}>
+                                            <div className={cn(
+                                                "group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border bg-card/40 hover:bg-card/80 transition-all duration-300 gap-3",
+                                                isSyncingThis ? "border-primary/50 shadow-md shadow-primary/5 ring-1 ring-primary/20" : "border-border/60"
+                                            )}>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                        <span className="font-semibold text-sm truncate text-foreground/90">
+                                                            {status.label}
                                                         </span>
+                                                        {getStatusBadge(status.endpoint, status)}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <FolderOpen className="h-3 w-3 opacity-70" />
+                                                            {yearState ? yearState.state.filePath : 'No file'}
+                                                        </span>
+                                                        {yearState && (
+                                                            <span className="flex items-center gap-1.5 border-l border-border pl-4">
+                                                                <Clock className="h-3 w-3 opacity-70" />
+                                                                {formatDate(yearState.state.lastSyncDate)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {progress?.records > 0 && (
+                                                        <div className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded inline-block">
+                                                            Processed {progress.records.toLocaleString()} records so far...
+                                                        </div>
                                                     )}
                                                 </div>
+
+                                                <Button
+                                                    variant={isSyncingThis ? "secondary" : "ghost"}
+                                                    size="sm"
+                                                    onClick={() => syncEndpoint(status.endpoint)}
+                                                    disabled={syncing !== null || batchSyncing}
+                                                    className={cn(
+                                                        "shrink-0 gap-2 font-medium border border-transparent",
+                                                        !isSyncingThis && "group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/10"
+                                                    )}
+                                                >
+                                                    {isSyncingThis ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Download className="h-4 w-4" />
+                                                    )}
+                                                    {isSyncingThis ? 'Syncing...' : 'Sync Now'}
+                                                </Button>
                                             </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => syncEndpoint(status.endpoint)}
-                                                disabled={syncing !== null || batchSyncing}
-                                                className="shrink-0"
-                                            >
-                                                {syncing === status.endpoint ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Download className="h-4 w-4" />
-                                                )}
-                                            </Button>
                                         </div>
                                     );
                                 })
                             )}
                         </div>
                     </ScrollArea>
-                </div>
 
-                {/* Footer Info */}
-                <div className="text-xs text-slate-400 flex items-center gap-2 pt-2 border-t">
-                    <FolderOpen className="h-3 w-3" />
-                    <span>Data disimpan ke: {basePath}</span>
-                </div>
-            </CardContent>
-        </Card>
+                    <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <FolderOpen className="h-3 w-3" />
+                            <span>Storage Path: <code className="bg-secondary/50 px-1 py-0.5 rounded text-foreground">{basePath}</code></span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </FadeIn>
     );
 }

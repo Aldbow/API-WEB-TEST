@@ -6,8 +6,9 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 interface DetailSheetProps {
     open: boolean;
@@ -43,69 +44,94 @@ export function DetailSheet({ open, onOpenChange, data }: DetailSheetProps) {
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
-                <SheetHeader className="mb-6">
-                    <SheetTitle className="text-xl font-bold leading-relaxed text-blue-700 dark:text-blue-400">
-                        {data.nama_paket}
-                    </SheetTitle>
-                    <SheetDescription>
-                        Detail lengkap paket pengadaan.
-                    </SheetDescription>
-                </SheetHeader>
+            <SheetContent className="w-[400px] sm:w-[600px] border-l border-border/50 bg-background/80 backdrop-blur-xl p-0 flex flex-col gap-0">
+                <div className="p-6 border-b border-border/50 bg-secondary/20">
+                    <SheetHeader>
+                        <SheetTitle className="text-xl font-bold leading-relaxed text-primary">
+                            {data.nama_paket}
+                        </SheetTitle>
+                        <SheetDescription className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="bg-background/50 backdrop-blur-sm border-primary/20 text-primary">
+                                {data.kode_rup || 'N/A'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{data.sumber_dana || 'Sumber Dana N/A'}</span>
+                        </SheetDescription>
+                    </SheetHeader>
+                </div>
 
-                <div className="space-y-6">
-                    {/* Key Information Card */}
-                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border space-y-3">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-xs font-semibold text-slate-500 uppercase">Kode RUP</p>
-                                <p className="font-mono text-sm">{data.kode_rup}</p>
+                <div className="flex-1 overflow-hidden relative">
+                    <ScrollArea className="h-full w-full">
+                        <div className="p-6 space-y-8">
+                            {/* Key Metrics */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 rounded-xl bg-card border shadow-sm space-y-1">
+                                    <p className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Pagu Anggaran</p>
+                                    <p className="font-mono text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                                        {formatCurrency(data.pagu)}
+                                    </p>
+                                </div>
+                                <div className="p-4 rounded-xl bg-card border shadow-sm space-y-1">
+                                    <p className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">HPS</p>
+                                    <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">
+                                        {data.total_harga ? formatCurrency(data.total_harga) : '-'}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs font-semibold text-slate-500 uppercase">Pagu</p>
-                                <p className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                    {formatCurrency(data.pagu)}
-                                </p>
+
+                            {/* Organization Info */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-semibold border-l-2 border-primary pl-2">Informasi Instansi</h3>
+                                <div className="grid gap-3 text-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 pb-2 border-b border-border/50 last:border-0 md:items-center">
+                                        <span className="font-medium text-muted-foreground">KLPD</span>
+                                        <span className="col-span-2">{data.nama_klpd}</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 pb-2 border-b border-border/50 last:border-0 md:items-center">
+                                        <span className="font-medium text-muted-foreground">Satuan Kerja</span>
+                                        <span className="col-span-2">{data.nama_satker}</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 pb-2 border-b border-border/50 last:border-0 md:items-center">
+                                        <span className="font-medium text-muted-foreground">Lokasi</span>
+                                        <span className="col-span-2">{data.lokasi_pekerjaan || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Separator className="bg-border/50" />
+
+                            {/* Raw Data */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold border-l-2 border-primary pl-2">Data Lengkap</h3>
+                                <div className="space-y-2 text-sm bg-secondary/20 p-4 rounded-xl border border-border/50">
+                                    {Object.entries(data).map(([key, value]) => {
+                                        if (['nama_paket', 'pagu', 'kode_rup', 'nama_klpd', 'nama_satker'].includes(key)) return null;
+
+                                        let displayValue = value;
+                                        if (typeof value === 'object' && value !== null) {
+                                            displayValue = JSON.stringify(value);
+                                        }
+                                        if (key.includes('pagu') || key.includes('harga')) {
+                                            displayValue = formatCurrency(value);
+                                        }
+                                        if (key.includes('tanggal') || key.includes('waktu')) {
+                                            displayValue = formatDate(value as string);
+                                        }
+
+                                        return (
+                                            <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-1 py-1.5 border-b border-border/30 last:border-0 text-xs sm:text-sm">
+                                                <span className="font-medium text-muted-foreground truncate" title={key}>
+                                                    {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                </span>
+                                                <span className="sm:col-span-2 font-mono break-all opacity-90">
+                                                    {String(displayValue)}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <p className="text-xs font-semibold text-slate-500 uppercase">Instansi / Satker</p>
-                            <p className="text-sm font-medium">{data.nama_klpd}</p>
-                            <p className="text-xs text-slate-500">{data.nama_satker}</p>
-                        </div>
-                    </div>
-
-                    {/* All Fields List */}
-                    <div>
-                        <h3 className="text-sm font-semibold mb-3 border-b pb-1">Semua Data (Raw)</h3>
-                        <ScrollArea className="h-[400px] rounded-md border p-4 bg-slate-50 dark:bg-slate-950/50">
-                            <div className="grid grid-cols-1 gap-2 text-sm">
-                                {Object.entries(data).map(([key, value]) => {
-                                    // Skip objects/arrays for simple display or JSON stringify them
-                                    let displayValue = value;
-                                    if (typeof value === 'object' && value !== null) {
-                                        displayValue = JSON.stringify(value);
-                                    }
-                                    // Format specific keys if needed
-                                    if (key.includes('pagu') || key.includes('harga')) {
-                                        displayValue = formatCurrency(value);
-                                    }
-                                    if (key.includes('tanggal') || key.includes('waktu')) {
-                                        displayValue = formatDate(value as string);
-                                    }
-
-                                    return (
-                                        <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-1 py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                                            <span className="font-medium text-slate-500 truncate" title={key}>{key}</span>
-                                            <span className="sm:col-span-2 text-slate-900 dark:text-slate-200 break-words font-mono text-xs sm:text-sm">
-                                                {String(displayValue)}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </ScrollArea>
-                    </div>
+                    </ScrollArea>
                 </div>
             </SheetContent>
         </Sheet>
