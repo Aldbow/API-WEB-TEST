@@ -37,9 +37,24 @@ export function AppShell({ children, activeTab, onTabChange }: { children: React
     };
 
     const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
-        <div className={cn("flex flex-col h-full bg-secondary/30 backdrop-blur-xl border-r border-border/50 transition-all duration-300",
-            !mobile && isCompact ? "w-[80px]" : "w-72"
+        <div className={cn("flex flex-col h-full bg-secondary/30 backdrop-blur-xl border-r border-border/50 transition-all duration-300 relative group",
+            !mobile && isCompact ? "w-[72px]" : "w-72"
         )}>
+            {/* Centered Toggle Button */}
+            {!mobile && (
+                <div className="absolute -right-5 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={toggleCompact}
+                        className="h-10 w-10 rounded-full border shadow-sm p-0 hover:bg-primary hover:text-primary-foreground transition-all hover:scale-110"
+                        title={isCompact ? "Expand Sidebar" : "Collapse Sidebar"}
+                    >
+                        <PanelLeft className={cn("h-6 w-6 transition-transform duration-300", isCompact && "rotate-180")} />
+                    </Button>
+                </div>
+            )}
+
             <div className={cn("h-16 flex items-center border-b border-border/50 bg-background/50 transition-all duration-300",
                 !mobile && isCompact ? "justify-center px-0" : "px-6 justify-between"
             )}>
@@ -54,22 +69,9 @@ export function AppShell({ children, activeTab, onTabChange }: { children: React
 
                 {/* Compact Mode Icon (Shown in center when compact) */}
                 {!mobile && isCompact && (
-                    <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20 text-primary-foreground shrink-0" title="InaprocViz">
-                        <Database className="h-4 w-4" />
+                    <div className="h-9 w-9 bg-primary/10 text-primary rounded-lg flex items-center justify-center shrink-0" title="InaprocViz">
+                        <Database className="h-5 w-5" />
                     </div>
-                )}
-
-                {/* Toggle Button */}
-                {!mobile && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleCompact}
-                        className={cn("text-muted-foreground hover:text-foreground shrink-0", isCompact && "mt-12 absolute top-2")}
-                        title={isCompact ? "Expand Sidebar" : "Collapse Sidebar"}
-                    >
-                        <PanelLeft className={cn("h-4 w-4 transition-transform", isCompact && "rotate-180")} />
-                    </Button>
                 )}
             </div>
 
@@ -82,7 +84,7 @@ export function AppShell({ children, activeTab, onTabChange }: { children: React
                     {navItems.map((item) => {
                         const isActive = activeTab === item.value;
                         return (
-                            <div key={item.value}>
+                            <div key={item.value} className={cn(!mobile && isCompact && "flex justify-center")}>
                                 {(!mobile && isCompact) ? (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -90,19 +92,13 @@ export function AppShell({ children, activeTab, onTabChange }: { children: React
                                                 variant="ghost"
                                                 onClick={() => onTabChange(item.value)}
                                                 className={cn(
-                                                    "w-full justify-center h-12 rounded-xl transition-all duration-200",
+                                                    "h-10 w-10 p-0 rounded-xl transition-all duration-200 grid place-items-center",
                                                     isActive
-                                                        ? "bg-primary/10 text-primary"
-                                                        : "text-muted-foreground hover:bg-muted"
+                                                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                                 )}
                                             >
                                                 <item.icon className="h-5 w-5" />
-                                                {isActive && (
-                                                    <motion.div
-                                                        layoutId="active-nav-dot"
-                                                        className="absolute right-2 w-1.5 h-1.5 bg-primary rounded-full"
-                                                    />
-                                                )}
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent side="right" className="font-medium bg-foreground text-background">

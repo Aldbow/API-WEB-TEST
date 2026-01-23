@@ -19,7 +19,8 @@ import {
     Activity,
     AlertCircle,
     CheckCircle2,
-    ArrowRight
+    ArrowRight,
+    Database
 } from 'lucide-react';
 import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
 import { Progress } from '@/components/ui/progress';
@@ -177,7 +178,7 @@ export function RangeSyncManager() {
     return (
         <FadeIn className="space-y-6">
             <Card className="glass-card">
-                <CardHeader className="border-b border-border/50 bg-secondary/20">
+                <CardHeader className="border-b border-border/50">
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
                             <History className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -195,53 +196,61 @@ export function RangeSyncManager() {
                     <div className="flex flex-col lg:flex-row gap-8">
                         <div className="flex-1 space-y-6">
                             {/* Category Selection */}
-                            <div className="space-y-3">
-                                <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Sync Strategy</label>
-                                <div className="flex gap-2 p-1 bg-secondary/50 rounded-xl border border-border/50 w-full sm:w-fit">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className={cn(
-                                            "flex-1 sm:flex-none transition-all rounded-lg text-sm",
-                                            activeTab === 'v1'
-                                                ? "bg-background text-primary shadow-sm ring-1 ring-border/50"
-                                                : "text-muted-foreground hover:text-foreground"
-                                        )}
-                                        onClick={() => setActiveTab('v1')}
-                                    >
-                                        V1 API (Modern)
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className={cn(
-                                            "flex-1 sm:flex-none transition-all rounded-lg text-sm",
-                                            activeTab === 'legacy'
-                                                ? "bg-background text-amber-600 dark:text-amber-500 shadow-sm ring-1 ring-border/50"
-                                                : "text-muted-foreground hover:text-foreground"
-                                        )}
-                                        onClick={() => setActiveTab('legacy')}
-                                    >
-                                        Legacy API (Archive)
-                                    </Button>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Sync Strategy</label>
+                                    <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg border border-border/50 w-full">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={cn(
+                                                "flex-1 transition-all rounded-md text-sm font-medium h-9",
+                                                activeTab === 'v1'
+                                                    ? "bg-background text-primary shadow-sm ring-1 ring-border/50"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                                            )}
+                                            onClick={() => setActiveTab('v1')}
+                                        >
+                                            V1 API (Modern)
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={cn(
+                                                "flex-1 transition-all rounded-md text-sm font-medium h-9",
+                                                activeTab === 'legacy'
+                                                    ? "bg-background text-amber-600 dark:text-amber-500 shadow-sm ring-1 ring-border/50"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                                            )}
+                                            onClick={() => setActiveTab('legacy')}
+                                        >
+                                            Legacy API (Archive)
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <div className={cn(
-                                    "text-xs p-3 rounded-lg border",
+                                    "text-xs p-3 rounded-lg border transition-colors duration-300",
                                     activeTab === 'v1'
                                         ? "bg-blue-50/50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 border-blue-200/50"
                                         : "bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 border-amber-200/50"
                                 )}>
                                     {activeTab === 'v1' ? (
-                                        <p className="flex items-center gap-2">
-                                            <Zap className="h-3 w-3" />
-                                            <strong>Incremental Sync:</strong> Uses cursors to fetch only new data. Fast and efficient.
-                                        </p>
+                                        <div className="flex items-start gap-2.5">
+                                            <Zap className="h-4 w-4 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="font-semibold block mb-0.5">Incremental Sync</span>
+                                                <span className="opacity-90 leading-relaxed">Uses smart cursors to fetch only new records since the last sync. Fast, efficient, and friendly to the API.</span>
+                                            </div>
+                                        </div>
                                     ) : (
-                                        <p className="flex items-center gap-2">
-                                            <FileSpreadsheet className="h-3 w-3" />
-                                            <strong>Overwrite Sync:</strong> Downloads fresh full dataset and replaces existing files.
-                                        </p>
+                                        <div className="flex items-start gap-2.5">
+                                            <FileSpreadsheet className="h-4 w-4 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="font-semibold block mb-0.5">Overwrite Sync</span>
+                                                <span className="opacity-90 leading-relaxed">Downloads the full dataset for the selected year and replaces existing files. Use this for data consistency checks.</span>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -347,70 +356,96 @@ export function RangeSyncManager() {
                     </div>
 
                     {/* Scorechart / Stats Panel */}
+                    {/* Scorechart / Stats Panel */}
                     {(stats.length > 0 || rangeSyncConfig.isSyncing) && (
-                        <SlideUp className="grid gap-6 md:grid-cols-3 pt-6 border-t border-border/50">
+                        <SlideUp className="grid gap-6 md:grid-cols-12 pt-6 border-t border-border/50">
                             {/* Summary Cards */}
-                            <div className="md:col-span-1 space-y-4">
-                                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Session Summary</h3>
-                                <div className="p-5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 text-emerald-900 dark:text-emerald-100">
-                                    <p className="text-xs font-bold uppercase opacity-60 mb-1">Total New Rows</p>
-                                    <p className="text-4xl font-bold tracking-tight">{totalNewRows.toLocaleString()}</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="p-4 rounded-xl bg-secondary/50 border border-border/50">
-                                        <p className="text-xs text-muted-foreground">Processed</p>
-                                        <p className="text-xl font-semibold">{totalProcessed}</p>
+                            <div className="md:col-span-4 lg:col-span-3 space-y-4">
+                                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">Session Summary</h3>
+                                <div className="space-y-3">
+                                    <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 text-emerald-900 dark:text-emerald-100 relative overflow-hidden group">
+                                        <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-1 relative z-10">Total New Rows</p>
+                                        <p className="text-4xl font-bold tracking-tight relative z-10">{totalNewRows.toLocaleString()}</p>
+                                        <Database className="absolute bottom-[-10px] right-[-10px] h-24 w-24 text-emerald-500/5 rotate-[-15deg]" />
                                     </div>
-                                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400">
-                                        <p className="text-xs opacity-70">Errors</p>
-                                        <p className="text-xl font-semibold">{errors}</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 transition-colors">
+                                            <p className="text-[10px] font-medium opacity-80 uppercase tracking-wide">Processed</p>
+                                            <p className="text-lg font-semibold mt-0.5">{totalProcessed}</p>
+                                        </div>
+                                        <div className={cn(
+                                            "p-3 rounded-xl border transition-colors",
+                                            errors > 0
+                                                ? "bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400 font-bold"
+                                                : "bg-rose-500/5 border-rose-500/10 text-rose-600/70 dark:text-rose-400/70"
+                                        )}>
+                                            <p className="text-[10px] font-medium uppercase tracking-wide opacity-80">Errors</p>
+                                            <p className="text-lg font-semibold mt-0.5">{errors}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Detailed Table */}
-                            <div className="md:col-span-2 flex flex-col">
-                                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-4">Detailed Breakdown</h3>
-                                <Card className="flex-1 bg-background/50 border-border/50">
-                                    <ScrollArea className="h-[300px]">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-secondary/50 text-muted-foreground font-medium sticky top-0 backdrop-blur-sm z-10">
+                            <div className="md:col-span-8 lg:col-span-9 flex flex-col">
+                                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 pl-1">Detailed Breakdown</h3>
+                                <div className="rounded-2xl border border-border/50 bg-background/40 overflow-hidden flex flex-col h-full shadow-sm">
+                                    <ScrollArea className="h-[280px] w-full">
+                                        <table className="w-full text-xs text-left">
+                                            <thead className="bg-secondary/50 text-muted-foreground font-semibold sticky top-0 backdrop-blur-sm z-10 border-b border-border/50">
                                                 <tr>
-                                                    <th className="px-4 py-3">Endpoint</th>
+                                                    <th className="px-4 py-3 first:pl-5">Endpoint</th>
                                                     <th className="px-4 py-3 w-[80px]">Year</th>
                                                     <th className="px-4 py-3 text-right w-[100px]">New Rows</th>
                                                     <th className="px-4 py-3 text-right">
                                                         {activeTab === 'v1' ? 'Skipped' : 'Total Size'}
                                                     </th>
-                                                    <th className="px-4 py-3 w-[40px]"></th>
+                                                    <th className="px-4 py-3 w-[50px] text-center last:pr-5">Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-border/30">
-                                                {stats.map((row, i) => (
-                                                    <tr key={i} className={cn("hover:bg-secondary/30 transition-colors", row.newRecords > 0 ? "bg-emerald-500/5" : "")}>
-                                                        <td className="px-4 py-3 truncate max-w-[200px]" title={row.endpoint}>
-                                                            <span className="font-medium text-foreground">{row.endpoint.replace('Legacy:', '').replace('(Archive)', '').trim()}</span>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-muted-foreground">{row.year}</td>
-                                                        <td className={cn("px-4 py-3 text-right font-medium", row.newRecords > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
-                                                            {row.newRecords > 0 ? `+${row.newRecords}` : '-'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right text-muted-foreground font-mono text-xs">
-                                                            {row.duplicatesOrTotal.toLocaleString()}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            {row.status === 'success' ? (
-                                                                <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
-                                                            ) : (
-                                                                <AlertCircle className="h-4 w-4 text-red-500 mx-auto" title={row.message} />
-                                                            )}
+                                                {stats.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={5} className="py-12 text-center text-muted-foreground italic">
+                                                            Waiting for sync data...
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                ) : (
+                                                    stats.map((row, i) => (
+                                                        <tr key={i} className={cn("group hover:bg-secondary/40 transition-colors", row.newRecords > 0 ? "bg-emerald-500/[0.02]" : "")}>
+                                                            <td className="px-4 py-2.5 first:pl-5 truncate max-w-[200px]" title={row.endpoint}>
+                                                                <span className="font-medium text-foreground">{row.endpoint.replace('Legacy:', '').replace('(Archive)', '').trim()}</span>
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-muted-foreground font-mono">{row.year}</td>
+                                                            <td className={cn("px-4 py-2.5 text-right font-medium font-mono", row.newRecords > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/50")}>
+                                                                {row.newRecords > 0 ? `+${row.newRecords.toLocaleString()}` : '—'}
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-right text-muted-foreground/70 font-mono text-[10px]">
+                                                                {row.duplicatesOrTotal.toLocaleString()}
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-center last:pr-5">
+                                                                {row.status === 'success' ? (
+                                                                    <div className="flex justify-center">
+                                                                        <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex justify-center">
+                                                                        <div className="h-6 w-6 rounded-full bg-red-500/10 flex items-center justify-center">
+                                                                            <AlertCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" title={row.message} />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
                                             </tbody>
                                         </table>
                                     </ScrollArea>
-                                </Card>
+                                </div>
                             </div>
                         </SlideUp>
                     )}
