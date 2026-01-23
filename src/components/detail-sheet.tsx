@@ -6,7 +6,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DetailSheetProps {
@@ -36,7 +36,7 @@ export function DetailSheet({ open, onOpenChange, data }: DetailSheetProps) {
                 hour: '2-digit',
                 minute: '2-digit'
             });
-        } catch (e) {
+        } catch {
             return val;
         }
     };

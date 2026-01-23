@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -22,15 +21,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, Filter, Database, TrendingUp, DollarSign, Eye, Download, Archive, Network, FolderSync, TableIcon, AlertTriangle } from "lucide-react";
+import { Loader2, Search, Filter, Database, TrendingUp, DollarSign, Eye, Download, FolderSync, TableIcon, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DetailSheet } from "@/components/detail-sheet";
 import { SyncManager } from "@/components/sync-manager";
 import { RangeSyncManager } from "@/components/range-sync-manager";
-import { ENDPOINTS, Endpoint } from "@/lib/constants";
+import { ENDPOINTS } from "@/lib/constants";
 
-// Mock Badge if I missed adding it, or just use span with classes if lazy. 
-// But better to add it. I'll use standard tailwind classes for now to be safe.
 
 export default function Home() {
     // Dynamic Endpoint
@@ -70,17 +67,12 @@ export default function Home() {
 
     // Export state
     const [isExporting, setIsExporting] = useState(false);
-    const [exportProgress, setExportProgress] = useState(0);
 
-    // ... imports need to be added at top, but I can't do that easily with replace here. 
-    // I'll assume I can add imports in a separate REPLACE block or at the top if I could.
-    // Wait, I should add imports first. 
 
-    // I will add the logic helper function here.
 
     const handleExport = async () => {
         setIsExporting(true);
-        setExportProgress(0);
+        setIsExporting(true);
 
         try {
             const XLSX = await import("xlsx");
@@ -114,7 +106,7 @@ export default function Home() {
                     keepFetching = false;
                 } else {
                     allExportData = [...allExportData, ...pageData];
-                    setExportProgress(allExportData.length);
+                    allExportData = [...allExportData, ...pageData];
 
                     // Check cursor
                     const nextCursor = result.cursor || (result.meta && result.meta.cursor);
@@ -466,7 +458,7 @@ export default function Home() {
                                 <div>
                                     <h4 className="font-semibold text-lg">Restricted Endpoint</h4>
                                     <p className="max-w-md mx-auto mt-1 text-amber-700 dark:text-amber-300">
-                                        This endpoint ("{ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.label}") requires specific parameters (like ID) to fetch data.
+                                        This endpoint (&quot;{ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.label}&quot;) requires specific parameters (like ID) to fetch data.
                                         It cannot be browsed directly without a specific ID context.
                                     </p>
                                 </div>

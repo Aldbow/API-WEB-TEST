@@ -97,7 +97,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
 
         try {
             let isComplete = false;
-            let totalNew = 0;
+
 
             while (!isComplete) {
                 const res = await fetch('/api/sync', {
@@ -117,7 +117,7 @@ export function SyncManager({ year, onSyncComplete }: SyncManagerProps) {
                     throw new Error(result.error || 'Sync failed');
                 }
 
-                totalNew += result.newRecords;
+
                 isComplete = result.isComplete;
 
                 setSyncProgress((prev) => ({

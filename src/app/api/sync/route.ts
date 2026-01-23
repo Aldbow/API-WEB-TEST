@@ -148,7 +148,7 @@ export async function POST(request: Request) {
         let pagesFetched = 0;
         let isComplete = false;
 
-        let accumulatedData: any[] = [];
+        const accumulatedData: any[] = [];
         let finalCursor: string | null = currentCursor;
 
         // Fetch data in pages
