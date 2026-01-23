@@ -26,9 +26,10 @@ import {
     Server,
 } from 'lucide-react';
 import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
-import { FadeIn } from './ui/motion-primitives';
+import { FadeIn, StaggerContainer, StaggerItem, ScaleOnHover } from './ui/motion-primitives';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SyncState {
     lastCursor: string | null;
@@ -290,24 +291,26 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                 Refresh Status
                             </Button>
 
-                            <Button
-                                size="sm"
-                                onClick={batchSync}
-                                disabled={batchSyncing || syncing !== null}
-                                className="bg-primary hover:bg-primary/90 h-9 transition-all shadow-lg shadow-primary/20"
-                            >
-                                {batchSyncing ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Batch Syncing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Zap className="h-4 w-4 mr-2" />
-                                        Sync All Now
-                                    </>
-                                )}
-                            </Button>
+                            <ScaleOnHover>
+                                <Button
+                                    size="sm"
+                                    onClick={batchSync}
+                                    disabled={batchSyncing || syncing !== null}
+                                    className="bg-primary hover:bg-primary/90 h-9 transition-all shadow-lg shadow-primary/20"
+                                >
+                                    {batchSyncing ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Batch Syncing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Zap className="h-4 w-4 mr-2" />
+                                            Sync All Now
+                                        </>
+                                    )}
+                                </Button>
+                            </ScaleOnHover>
                         </div>
                     </div>
                 </CardHeader>
@@ -372,71 +375,90 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
 
                     <ScrollArea className="h-[450px] pr-4">
                         <div className="grid grid-cols-1 gap-2">
-                            {statuses.length === 0 && !loading ? (
-                                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
+
+                            {loading && statuses.length === 0 ? (
+                                <StaggerContainer key="skeleton">
+                                    {[1, 2, 3, 4, 5].map((i) => (
+                                        <StaggerItem key={i}>
+                                            <div className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-card/40 gap-3">
+                                                <div className="space-y-2 flex-1">
+                                                    <Skeleton className="h-5 w-32" />
+                                                    <Skeleton className="h-3 w-48" />
+                                                </div>
+                                                <Skeleton className="h-8 w-24" />
+                                            </div>
+                                        </StaggerItem>
+                                    ))}
+                                </StaggerContainer>
+                            ) : statuses.length === 0 ? (
+                                <div key="empty" className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
                                     No sync status available. Try refreshing.
                                 </div>
                             ) : (
-                                statuses.map((status) => {
-                                    const yearState = status.years.find((y) => y.year === year);
-                                    const progress = syncProgress[status.endpoint];
-                                    const isSyncingThis = syncing === status.endpoint;
+                                <StaggerContainer key="list">
+                                    {statuses.map((status) => {
+                                        const yearState = status.years.find((y) => y.year === year);
+                                        const progress = syncProgress[status.endpoint];
+                                        const isSyncingThis = syncing === status.endpoint;
 
-                                    return (
-                                        <div key={status.endpoint}>
-                                            <div className={cn(
-                                                "group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border bg-card/40 hover:bg-card/80 transition-all duration-300 gap-3",
-                                                isSyncingThis ? "border-primary/50 shadow-md shadow-primary/5 ring-1 ring-primary/20" : "border-border/60"
-                                            )}>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                        <span className="font-semibold text-sm truncate text-foreground/90">
-                                                            {status.label}
-                                                        </span>
-                                                        {getStatusBadge(status.endpoint, status)}
-                                                    </div>
-
-                                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                                        <span className="flex items-center gap-1.5">
-                                                            <FolderOpen className="h-3 w-3 opacity-70" />
-                                                            {yearState ? yearState.state.filePath : 'No file'}
-                                                        </span>
-                                                        {yearState && (
-                                                            <span className="flex items-center gap-1.5 border-l border-border pl-4">
-                                                                <Clock className="h-3 w-3 opacity-70" />
-                                                                {formatDate(yearState.state.lastSyncDate)}
+                                        return (
+                                            <StaggerItem key={status.endpoint}>
+                                                <div className={cn(
+                                                    "group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border bg-card/40 hover:bg-card/80 transition-all duration-300 gap-3",
+                                                    isSyncingThis ? "border-primary/50 shadow-md shadow-primary/5 ring-1 ring-primary/20" : "border-border/60"
+                                                )}>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                            <span className="font-semibold text-sm truncate text-foreground/90">
+                                                                {status.label}
                                                             </span>
+                                                            {getStatusBadge(status.endpoint, status)}
+                                                        </div>
+
+                                                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                                            <span className="flex items-center gap-1.5">
+                                                                <FolderOpen className="h-3 w-3 opacity-70" />
+                                                                {yearState ? yearState.state.filePath : 'No file'}
+                                                            </span>
+                                                            {yearState && (
+                                                                <span className="flex items-center gap-1.5 border-l border-border pl-4">
+                                                                    <Clock className="h-3 w-3 opacity-70" />
+                                                                    {formatDate(yearState.state.lastSyncDate)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {progress?.records > 0 && (
+                                                            <div className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded inline-block">
+                                                                Processed {progress.records.toLocaleString()} records so far...
+                                                            </div>
                                                         )}
                                                     </div>
 
-                                                    {progress?.records > 0 && (
-                                                        <div className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded inline-block">
-                                                            Processed {progress.records.toLocaleString()} records so far...
-                                                        </div>
-                                                    )}
+                                                    <ScaleOnHover>
+                                                        <Button
+                                                            variant={isSyncingThis ? "secondary" : "ghost"}
+                                                            size="sm"
+                                                            onClick={() => syncEndpoint(status.endpoint)}
+                                                            disabled={syncing !== null || batchSyncing}
+                                                            className={cn(
+                                                                "w-full sm:w-auto shrink-0 gap-2 font-medium border border-transparent",
+                                                                !isSyncingThis && "group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/10"
+                                                            )}
+                                                        >
+                                                            {isSyncingThis ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <Download className="h-4 w-4" />
+                                                            )}
+                                                            {isSyncingThis ? 'Syncing...' : 'Sync Now'}
+                                                        </Button>
+                                                    </ScaleOnHover>
                                                 </div>
-
-                                                <Button
-                                                    variant={isSyncingThis ? "secondary" : "ghost"}
-                                                    size="sm"
-                                                    onClick={() => syncEndpoint(status.endpoint)}
-                                                    disabled={syncing !== null || batchSyncing}
-                                                    className={cn(
-                                                        "shrink-0 gap-2 font-medium border border-transparent",
-                                                        !isSyncingThis && "group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/10"
-                                                    )}
-                                                >
-                                                    {isSyncingThis ? (
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <Download className="h-4 w-4" />
-                                                    )}
-                                                    {isSyncingThis ? 'Syncing...' : 'Sync Now'}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    );
-                                })
+                                            </StaggerItem>
+                                        );
+                                    })}
+                                </StaggerContainer>
                             )}
                         </div>
                     </ScrollArea>

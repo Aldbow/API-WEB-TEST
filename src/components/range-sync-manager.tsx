@@ -24,10 +24,11 @@ import {
 } from 'lucide-react';
 import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
 import { Progress } from '@/components/ui/progress';
-import { FadeIn, SlideUp } from './ui/motion-primitives';
+import { FadeIn, SlideUp, StaggerContainer, StaggerItem, ScaleOnHover } from './ui/motion-primitives';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function RangeSyncManager() {
     const [rangeSyncConfig, setRangeSyncConfig] = useState({
@@ -360,32 +361,40 @@ export function RangeSyncManager() {
                     {(stats.length > 0 || rangeSyncConfig.isSyncing) && (
                         <SlideUp className="grid gap-6 md:grid-cols-12 pt-6 border-t border-border/50">
                             {/* Summary Cards */}
-                            <div className="md:col-span-4 lg:col-span-3 space-y-4">
+                            <StaggerContainer className="md:col-span-4 lg:col-span-3 space-y-4" delayChildren={0.1}>
                                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">Session Summary</h3>
                                 <div className="space-y-3">
-                                    <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 text-emerald-900 dark:text-emerald-100 relative overflow-hidden group">
-                                        <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-1 relative z-10">Total New Rows</p>
-                                        <p className="text-4xl font-bold tracking-tight relative z-10">{totalNewRows.toLocaleString()}</p>
-                                        <Database className="absolute bottom-[-10px] right-[-10px] h-24 w-24 text-emerald-500/5 rotate-[-15deg]" />
-                                    </div>
+                                    <StaggerItem>
+                                        <ScaleOnHover className="h-full">
+                                            <div className="p-5 h-full rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 text-emerald-900 dark:text-emerald-100 relative overflow-hidden group">
+                                                <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                                <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-1 relative z-10">Total New Rows</p>
+                                                <p className="text-4xl font-bold tracking-tight relative z-10">{totalNewRows.toLocaleString()}</p>
+                                                <Database className="absolute bottom-[-10px] right-[-10px] h-24 w-24 text-emerald-500/5 rotate-[-15deg]" />
+                                            </div>
+                                        </ScaleOnHover>
+                                    </StaggerItem>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 transition-colors">
-                                            <p className="text-[10px] font-medium opacity-80 uppercase tracking-wide">Processed</p>
-                                            <p className="text-lg font-semibold mt-0.5">{totalProcessed}</p>
-                                        </div>
-                                        <div className={cn(
-                                            "p-3 rounded-xl border transition-colors",
-                                            errors > 0
-                                                ? "bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400 font-bold"
-                                                : "bg-rose-500/5 border-rose-500/10 text-rose-600/70 dark:text-rose-400/70"
-                                        )}>
-                                            <p className="text-[10px] font-medium uppercase tracking-wide opacity-80">Errors</p>
-                                            <p className="text-lg font-semibold mt-0.5">{errors}</p>
-                                        </div>
+                                        <StaggerItem>
+                                            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 transition-colors">
+                                                <p className="text-[10px] font-medium opacity-80 uppercase tracking-wide">Processed</p>
+                                                <p className="text-lg font-semibold mt-0.5">{totalProcessed}</p>
+                                            </div>
+                                        </StaggerItem>
+                                        <StaggerItem>
+                                            <div className={cn(
+                                                "p-3 rounded-xl border transition-colors",
+                                                errors > 0
+                                                    ? "bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400 font-bold"
+                                                    : "bg-rose-500/5 border-rose-500/10 text-rose-600/70 dark:text-rose-400/70"
+                                            )}>
+                                                <p className="text-[10px] font-medium uppercase tracking-wide opacity-80">Errors</p>
+                                                <p className="text-lg font-semibold mt-0.5">{errors}</p>
+                                            </div>
+                                        </StaggerItem>
                                     </div>
                                 </div>
-                            </div>
+                            </StaggerContainer>
 
                             {/* Detailed Table */}
                             <div className="md:col-span-8 lg:col-span-9 flex flex-col">
@@ -433,8 +442,8 @@ export function RangeSyncManager() {
                                                                     </div>
                                                                 ) : (
                                                                     <div className="flex justify-center">
-                                                                        <div className="h-6 w-6 rounded-full bg-red-500/10 flex items-center justify-center">
-                                                                            <AlertCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" title={row.message} />
+                                                                        <div className="h-6 w-6 rounded-full bg-red-500/10 flex items-center justify-center" title={row.message}>
+                                                                            <AlertCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                                                                         </div>
                                                                     </div>
                                                                 )}
@@ -457,17 +466,19 @@ export function RangeSyncManager() {
                             <Badge variant="outline" className="text-[10px] h-5">{logs.length} entries</Badge>
                         </div>
                         <ScrollArea className="h-[150px] rounded-lg border border-border/50 bg-secondary/10 dark:bg-black/20 p-2">
-                            <div className="font-mono text-xs space-y-1">
+                            <StaggerContainer className="font-mono text-xs space-y-1">
                                 {logs.length === 0 ? (
                                     <span className="text-muted-foreground/50 italic p-2 block">No logs generated yet...</span>
                                 ) : (
                                     logs.map((log, i) => (
-                                        <div key={i} className="border-b border-border/30 pb-1 last:border-0 last:pb-0 text-muted-foreground/80 break-all hover:bg-secondary/30 rounded px-1">
-                                            {log}
-                                        </div>
+                                        <StaggerItem key={i}>
+                                            <div className="border-b border-border/30 pb-1 last:border-0 last:pb-0 text-muted-foreground/80 break-all hover:bg-secondary/30 rounded px-1">
+                                                {log}
+                                            </div>
+                                        </StaggerItem>
                                     ))
                                 )}
-                            </div>
+                            </StaggerContainer>
                         </ScrollArea>
                     </div>
                 </CardContent>

@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AppShell } from '@/components/layout/app-shell';
 import { FadeIn, SlideUp, StaggerContainer, StaggerItem, AnimatePresence } from '@/components/ui/motion-primitives';
+import { cn } from "@/lib/utils";
 
 export default function Home() {
     // Dynamic Endpoint
@@ -45,6 +46,9 @@ export default function Home() {
     const [search, setSearch] = useState('');
     const [cursor, setCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
+
+    // API Connection Status
+    const [apiStatus, setApiStatus] = useState<'connected' | 'disconnected'>('connected');
 
     // Client-side pagination state for Legacy endpoints
     const [allLegacyData, setAllLegacyData] = useState<any[]>([]);
@@ -186,7 +190,11 @@ export default function Home() {
             }
 
             const res = await fetch(`/api/inaproc?${query.toString()}`);
+            if (!res.ok) throw new Error("API Response not ok"); // Simplify error for status check
             const result = await res.json();
+
+            // If we got here, API is responsive
+            setApiStatus('connected');
 
             if (result.data) {
                 if (reset) {
@@ -221,6 +229,7 @@ export default function Home() {
         } catch (error) {
             console.error("Failed to fetch data", error);
             toast.error("Failed to fetch data from API");
+            setApiStatus('disconnected');
         } finally {
             setLoading(false);
         }
@@ -376,14 +385,16 @@ export default function Home() {
                                 <StaggerItem>
                                     <div className="glass-card rounded-xl p-6 border-l-4 border-l-blue-500/50">
                                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                            <div className="text-sm font-medium text-muted-foreground">Status Aktif</div>
-                                            <TrendingUp className="h-4 w-4 text-blue-500 opacity-80" />
+                                            <div className="text-sm font-medium text-muted-foreground">Status Koneksi API</div>
+                                            <Activity className={cn("h-4 w-4 opacity-80", apiStatus === 'connected' ? "text-emerald-500" : "text-rose-500")} />
                                         </div>
                                         <div className="mt-4">
-                                            <div className="text-3xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
-                                                {stats.activeCount.toLocaleString()}
+                                            <div className={cn("text-3xl font-bold tracking-tight", apiStatus === 'connected' ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
+                                                {apiStatus === 'connected' ? 'Active' : 'Disconnected'}
                                             </div>
-                                            <p className="text-xs text-muted-foreground mt-1">Paket Aktif/Tayang</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {apiStatus === 'connected' ? 'Systems operational' : 'Connection lost'}
+                                            </p>
                                         </div>
                                     </div>
                                 </StaggerItem>
